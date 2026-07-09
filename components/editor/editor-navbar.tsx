@@ -5,6 +5,7 @@ import {
   PanelLeftClose as PaneLeftClose,
   PanelLeftOpen as PaneLeftOpen,
 } from "lucide-react";
+import { UserButton } from "@clerk/nextjs";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -56,7 +57,33 @@ export function EditorNavbar({
           </div>
         </div>
 
-        <div className="flex w-1/3 justify-end" aria-hidden="true" />
+        <div className="flex w-1/3 items-center justify-end">
+          <UserButton
+            appearance={{
+              elements: {
+                userButtonAvatarBox:
+                  "h-9 w-9 border border-surface-border shadow-[0_0_0_1px_var(--border-subtle)]",
+                userButtonTrigger:
+                  "rounded-xl focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]",
+                userButtonPopoverCard: {
+                  backgroundColor: "var(--bg-surface)",
+                  borderColor: "var(--border-default)",
+                },
+                userButtonPopoverActionButton: {
+                  color: "var(--text-primary)",
+                  fontWeight: 500,
+                },
+                userButtonPopoverActionButtonIcon: {
+                  color: "var(--text-secondary)",
+                },
+                userButtonPopoverFooterPagesLink: {
+                  color: "var(--text-muted)",
+                },
+              },
+            }}
+            showName={false}
+          />
+        </div>
       </div>
     </header>
   );
