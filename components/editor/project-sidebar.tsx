@@ -4,7 +4,7 @@ import { FolderOpen, Pencil, Plus, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { EditorProject } from "@/components/editor/use-project-dialogs";
+import type { EditorProject } from "@/hooks/use-project-actions";
 import { cn } from "@/lib/utils";
 
 export interface ProjectSidebarProps {

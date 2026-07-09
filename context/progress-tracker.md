@@ -35,6 +35,12 @@ Update this file whenever the current phase, active feature, or implementation s
 - Added the `/editor` home prompt with a `New project` action wired to the create project dialog.
 - Added local mock project dialog state, create/rename/delete dialogs, live slug previews, and mock project mutations without API calls or persistence.
 - Added owned-project rename/delete sidebar actions, hid actions for shared projects, and added the mobile sidebar backdrop close behavior.
+- Added the `Project` and `ProjectCollaborator` Prisma models in `prisma/models/project.prisma` (owner ID, status enum, `canvasJsonPath`, timestamps, cascade-deleted collaborators with a project/email unique constraint) and generated/applied the `add_project_models` migration.
+- Added `lib/prisma.ts` as a cached global Prisma Client singleton that branches on `DATABASE_URL`: an Accelerate URL (`prisma+postgres://`) uses `accelerateUrl`, otherwise a direct `@prisma/adapter-pg` adapter is used.
+- Added `lib/auth.ts` with a `getAuthUserId()` helper that reads the Clerk session and returns the user ID only when authenticated.
+- Added the project REST API: `GET /api/projects` (list projects owned by the current user), `POST /api/projects` (create, defaulting a missing/blank name to "Untitled Project", using the schema's `cuid()` ID default), `PATCH /api/projects/[projectId]` (rename, owner-only), and `DELETE /api/projects/[projectId]` (delete, owner-only). All four return `401` when unauthenticated; rename/delete return `403` for non-owners and `404` when the project doesn't exist. No UI wiring yet.
+- Updated `proxy.ts` so `/api(.*)` requests skip the middleware's `auth.protect()`/redirect logic entirely: Clerk's `protect()` returns `404` (not `401`) for unauthenticated non-document requests, which conflicted with the API spec's `401` requirement, so API routes now enforce their own auth via `getAuthUserId()` and return the correct status codes.
+- Wired the editor home sidebar and dialogs to the real project API: converted `/editor` to a React Server Component that fetches owned and shared projects server-side via `lib/projects.ts`; created `hooks/use-project-actions.ts` with real `POST`/`PATCH`/`DELETE` API calls; create navigates to the new workspace, rename refreshes the RSC tree, delete optimistically removes from local state then refreshes; updated `GET /api/projects` to also return shared projects by resolving the user's Clerk primary email against `ProjectCollaborator` records.
 
 ## In Progress
 
@@ -50,7 +56,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Architecture Decisions
 
-- Add decisions that affect the system design or data model.
+- API routes own their own Clerk auth checks (`lib/auth.ts`) instead of relying on `proxy.ts` middleware protection, so they can return spec-correct `401`/`403` JSON responses instead of Clerk's default `404`-for-unauthenticated-API-requests behavior. `proxy.ts` now treats `/api(.*)` as exempt from its `auth.protect()`/redirect logic.
 
 ## Session Notes
 
@@ -70,3 +76,6 @@ Update this file whenever the current phase, active feature, or implementation s
 - `npm.cmd run lint` and `npm.cmd run build` both pass after fixing faded Clerk button text and user-menu action colors.
 - `npm.cmd run lint` and `npm.cmd run build` both pass after removing the auth screen scrollbars.
 - `npm.cmd run build` and `npm.cmd run lint` both pass after the project dialogs and sidebar action implementation.
+- `npx prisma migrate dev --name add_project_models` and `npx prisma generate` both ran successfully against the configured `DATABASE_URL`; `npm run lint` and `npm run build` both pass after adding the Prisma models and client singleton.
+- `npm.cmd run lint` and `npm.cmd run build` both pass after adding the project REST API routes and the `proxy.ts` API-route auth exemption.
+- `npm.cmd run build` passes after wiring the editor home to the real project API (feature 07): RSC page, `useProjectActions` hook, `lib/projects.ts` data helper, updated `GET /api/projects` with shared-project support.

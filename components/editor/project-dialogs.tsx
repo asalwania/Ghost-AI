@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import type { EditorProject } from "@/components/editor/use-project-dialogs";
+import type { EditorProject } from "@/hooks/use-project-actions";
 
 type ProjectDialog = "create" | "rename" | "delete" | null;
 

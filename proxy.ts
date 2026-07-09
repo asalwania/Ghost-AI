@@ -15,8 +15,14 @@ const isPublicRoute = createRouteMatcher([
   `${clerkSignUpPath}(.*)`,
 ]);
 
+const isApiRoute = createRouteMatcher(["/api(.*)"]);
+
 export default clerkMiddleware(
   async (auth, request) => {
+    if (isApiRoute(request)) {
+      return NextResponse.next();
+    }
+
     const { isAuthenticated, sessionStatus } = await auth();
 
     if (isPublicRoute(request)) {
