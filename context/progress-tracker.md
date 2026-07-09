@@ -32,6 +32,9 @@ Update this file whenever the current phase, active feature, or implementation s
 - Added visible Clerk loading and failed-auth states around the sign-in and sign-up forms so blocked Clerk browser scripts no longer leave an empty auth panel.
 - Fixed Clerk auth and user-menu button contrast by restoring a readable neutral color source and explicitly styling social, footer, navbar, and sign-out action text with app theme tokens.
 - Fixed the auth shell viewport sizing so the sign-in/sign-up main screen does not create page-level vertical or horizontal scrollbars.
+- Added the `/editor` home prompt with a `New project` action wired to the create project dialog.
+- Added local mock project dialog state, create/rename/delete dialogs, live slug previews, and mock project mutations without API calls or persistence.
+- Added owned-project rename/delete sidebar actions, hid actions for shared projects, and added the mobile sidebar backdrop close behavior.
 
 ## In Progress
 
@@ -66,3 +69,4 @@ Update this file whenever the current phase, active feature, or implementation s
 - `npm.cmd run lint` and `npm.cmd run build` both pass after adding the Clerk loading/failed auth panel states.
 - `npm.cmd run lint` and `npm.cmd run build` both pass after fixing faded Clerk button text and user-menu action colors.
 - `npm.cmd run lint` and `npm.cmd run build` both pass after removing the auth screen scrollbars.
+- `npm.cmd run build` and `npm.cmd run lint` both pass after the project dialogs and sidebar action implementation.
