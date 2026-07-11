@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { toSlugPreview } from "@/lib/project-utils";
+import type { EditorProject } from "@/lib/project-utils";
 
 // Re-export so existing consumers that import EditorProject from this file
 // continue to compile without changes.
