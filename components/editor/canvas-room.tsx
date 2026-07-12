@@ -19,15 +19,17 @@ import {
 } from "@xyflow/react";
 import {
   Component,
-  type DragEvent,
+  type DragEvent as ReactDragEvent,
   type ErrorInfo,
   type ReactNode,
   useCallback,
+  useEffect,
   useRef,
   useState,
 } from "react";
 
 import { CanvasNodeRenderer } from "@/components/editor/canvas-node";
+import { CanvasShapeFrame } from "@/components/editor/canvas-shape";
 import { ShapePanel } from "@/components/editor/shape-panel";
 import {
   CANVAS_NODE_TYPE,
@@ -53,6 +55,21 @@ interface CanvasRoomProps {
 
 interface CanvasErrorBoundaryState {
   error: Error | null;
+}
+
+interface DragClientPoint {
+  x: number;
+  y: number;
+}
+
+interface DragClientPointSource {
+  clientX: number;
+  clientY: number;
+}
+
+interface ShapeDragPreviewState {
+  payload: CanvasShapeDragPayload;
+  point: DragClientPoint;
 }
 
 class CanvasErrorBoundary extends Component<
@@ -156,6 +173,50 @@ function readShapeDragPayload(
   }
 }
 
+function readDragClientPoint(
+  event: DragClientPointSource
+): DragClientPoint | null {
+  if (event.clientX === 0 && event.clientY === 0) {
+    return null;
+  }
+
+  return { x: event.clientX, y: event.clientY };
+}
+
+function getElementCenter(element: HTMLElement): DragClientPoint {
+  const rect = element.getBoundingClientRect();
+
+  return {
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2,
+  };
+}
+
+function ShapeDragPreview({
+  dragPreview,
+}: {
+  dragPreview: ShapeDragPreviewState;
+}) {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-1/2 opacity-75"
+      style={{
+        left: dragPreview.point.x,
+        top: dragPreview.point.y,
+        width: dragPreview.payload.size.width,
+        height: dragPreview.payload.size.height,
+      }}
+    >
+      <CanvasShapeFrame
+        shape={dragPreview.payload.shape}
+        backgroundColor={DEFAULT_NODE_COLOR.background}
+        textColor={DEFAULT_NODE_COLOR.text}
+      />
+    </div>
+  );
+}
+
 function CanvasFlowInner() {
   const {
     nodes,
@@ -171,21 +232,89 @@ function CanvasFlowInner() {
   });
   const { screenToFlowPosition } = useReactFlow<CanvasNode, CanvasEdge>();
   const nodeIdCounter = useRef(0);
+  const [dragPreview, setDragPreview] =
+    useState<ShapeDragPreviewState | null>(null);
 
-  const handleDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
-    if (!event.dataTransfer.types.includes(CANVAS_SHAPE_DRAG_MIME)) {
+  const updateShapeDragPreviewPosition = useCallback(
+    (event: DragClientPointSource) => {
+      const point = readDragClientPoint(event);
+
+      if (!point) {
+        return;
+      }
+
+      setDragPreview((currentPreview) =>
+        currentPreview ? { ...currentPreview, point } : currentPreview
+      );
+    },
+    []
+  );
+
+  const clearShapeDragPreview = useCallback(() => {
+    setDragPreview(null);
+  }, []);
+
+  const handleShapeDragStart = useCallback(
+    (
+      payload: CanvasShapeDragPayload,
+      event: ReactDragEvent<HTMLButtonElement>
+    ) => {
+      const point =
+        readDragClientPoint(event) ?? getElementCenter(event.currentTarget);
+
+      setDragPreview({ payload, point });
+    },
+    []
+  );
+
+  const handleShapeDragMove = useCallback(
+    (event: ReactDragEvent<HTMLButtonElement>) => {
+      updateShapeDragPreviewPosition(event);
+    },
+    [updateShapeDragPreviewPosition]
+  );
+
+  const hasDragPreview = dragPreview !== null;
+
+  useEffect(() => {
+    if (!hasDragPreview) {
       return;
     }
 
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "copy";
-  }, []);
+    const handleWindowDragOver = (event: globalThis.DragEvent) => {
+      updateShapeDragPreviewPosition(event);
+    };
+
+    window.addEventListener("dragover", handleWindowDragOver);
+    window.addEventListener("drop", clearShapeDragPreview);
+    window.addEventListener("dragend", clearShapeDragPreview);
+
+    return () => {
+      window.removeEventListener("dragover", handleWindowDragOver);
+      window.removeEventListener("drop", clearShapeDragPreview);
+      window.removeEventListener("dragend", clearShapeDragPreview);
+    };
+  }, [clearShapeDragPreview, hasDragPreview, updateShapeDragPreviewPosition]);
+
+  const handleDragOver = useCallback(
+    (event: ReactDragEvent<HTMLDivElement>) => {
+      if (!event.dataTransfer.types.includes(CANVAS_SHAPE_DRAG_MIME)) {
+        return;
+      }
+
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+      updateShapeDragPreviewPosition(event);
+    },
+    [updateShapeDragPreviewPosition]
+  );
 
   const handleDrop = useCallback(
-    (event: DragEvent<HTMLDivElement>) => {
+    (event: ReactDragEvent<HTMLDivElement>) => {
       const payload = readShapeDragPayload(event.dataTransfer);
 
       if (!payload) {
+        clearShapeDragPreview();
         return;
       }
 
@@ -214,41 +343,49 @@ function CanvasFlowInner() {
       };
 
       onNodesChange([{ type: "add", item: node }]);
+      clearShapeDragPreview();
     },
-    [onNodesChange, screenToFlowPosition]
+    [clearShapeDragPreview, onNodesChange, screenToFlowPosition]
   );
 
   return (
-    <ReactFlow<CanvasNode, CanvasEdge>
-      className="ghost-canvas bg-base"
-      nodes={nodes}
-      edges={edges}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
-      onConnect={onConnect}
-      onDelete={onDelete}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
-      nodeTypes={CANVAS_NODE_TYPES}
-      connectionMode={ConnectionMode.Loose}
-      fitView
-    >
-      <Background
-        variant={BackgroundVariant.Dots}
-        gap={24}
-        size={1.2}
-        color="var(--border-subtle)"
-      />
-      <MiniMap<CanvasNode>
-        pannable
-        zoomable
-        bgColor="var(--bg-elevated)"
-        maskColor="color-mix(in srgb, var(--bg-base) 76%, transparent)"
-        nodeColor={(node) => node.data.color.background}
-        nodeStrokeColor={(node) => node.data.color.text}
-      />
-      <ShapePanel />
-    </ReactFlow>
+    <div className="relative h-full w-full">
+      <ReactFlow<CanvasNode, CanvasEdge>
+        className="ghost-canvas h-full w-full bg-base"
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        onDelete={onDelete}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        nodeTypes={CANVAS_NODE_TYPES}
+        connectionMode={ConnectionMode.Loose}
+        fitView
+      >
+        <Background
+          variant={BackgroundVariant.Dots}
+          gap={24}
+          size={1.2}
+          color="var(--border-subtle)"
+        />
+        <MiniMap<CanvasNode>
+          pannable
+          zoomable
+          bgColor="var(--bg-elevated)"
+          maskColor="color-mix(in srgb, var(--bg-base) 76%, transparent)"
+          nodeColor={(node) => node.data.color.background}
+          nodeStrokeColor={(node) => node.data.color.text}
+        />
+        <ShapePanel
+          onShapeDragStart={handleShapeDragStart}
+          onShapeDrag={handleShapeDragMove}
+          onShapeDragEnd={clearShapeDragPreview}
+        />
+      </ReactFlow>
+      {dragPreview ? <ShapeDragPreview dragPreview={dragPreview} /> : null}
+    </div>
   );
 }
 

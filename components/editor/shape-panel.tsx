@@ -25,6 +25,15 @@ interface ShapeOption {
   Icon: LucideIcon;
 }
 
+interface ShapePanelProps {
+  onShapeDragStart?: (
+    payload: CanvasShapeDragPayload,
+    event: DragEvent<HTMLButtonElement>
+  ) => void;
+  onShapeDrag?: (event: DragEvent<HTMLButtonElement>) => void;
+  onShapeDragEnd?: () => void;
+}
+
 const SHAPE_OPTIONS: ShapeOption[] = [
   { shape: "rectangle", label: "Rectangle", Icon: RectangleHorizontal },
   { shape: "diamond", label: "Diamond", Icon: Diamond },
@@ -43,9 +52,17 @@ function createShapeDragPayload(
   };
 }
 
+function hideNativeDragImage(event: DragEvent<HTMLButtonElement>) {
+  const transparentCanvas = document.createElement("canvas");
+  transparentCanvas.width = 1;
+  transparentCanvas.height = 1;
+  event.dataTransfer.setDragImage(transparentCanvas, 0, 0);
+}
+
 function handleShapeDragStart(
   event: DragEvent<HTMLButtonElement>,
-  shape: CanvasNodeShape
+  shape: CanvasNodeShape,
+  onShapeDragStart?: ShapePanelProps["onShapeDragStart"]
 ) {
   const payload = createShapeDragPayload(shape);
   const serializedPayload = JSON.stringify(payload);
@@ -53,9 +70,15 @@ function handleShapeDragStart(
   event.dataTransfer.effectAllowed = "copy";
   event.dataTransfer.setData(CANVAS_SHAPE_DRAG_MIME, serializedPayload);
   event.dataTransfer.setData("text/plain", serializedPayload);
+  hideNativeDragImage(event);
+  onShapeDragStart?.(payload, event);
 }
 
-export function ShapePanel() {
+export function ShapePanel({
+  onShapeDragStart,
+  onShapeDrag,
+  onShapeDragEnd,
+}: ShapePanelProps) {
   return (
     <div
       className="nodrag nopan absolute bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-full border border-surface-border bg-surface/90 p-1.5 shadow-lg backdrop-blur-md"
@@ -73,7 +96,11 @@ export function ShapePanel() {
           title={label}
           aria-label={`Drag ${label.toLowerCase()} shape`}
           className="h-10 w-10 cursor-grab rounded-full border border-transparent bg-transparent text-copy-secondary hover:border-surface-border hover:bg-subtle hover:text-copy-primary active:cursor-grabbing"
-          onDragStart={(event) => handleShapeDragStart(event, shape)}
+          onDragStart={(event) =>
+            handleShapeDragStart(event, shape, onShapeDragStart)
+          }
+          onDrag={onShapeDrag}
+          onDragEnd={onShapeDragEnd}
         >
           <Icon className="h-5 w-5" aria-hidden />
         </Button>

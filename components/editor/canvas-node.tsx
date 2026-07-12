@@ -2,7 +2,7 @@
 
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 
-import { cn } from "@/lib/utils";
+import { CanvasShapeFrame } from "@/components/editor/canvas-shape";
 import type { CanvasNode } from "@/types/canvas";
 
 const HANDLE_CLASS =
@@ -13,19 +13,17 @@ export function CanvasNodeRenderer({
   selected,
 }: NodeProps<CanvasNode>) {
   return (
-    <div
-      className={cn(
-        "group relative flex h-full min-h-12 w-full min-w-20 items-center justify-center rounded-xl border px-4 py-2 text-center text-sm font-medium shadow-lg",
-        selected ? "border-brand" : "border-surface-border"
-      )}
-      style={{
-        backgroundColor: data.color.background,
-        color: data.color.text,
-      }}
-    >
-      {data.label ? (
-        <span className="max-w-full truncate">{data.label}</span>
-      ) : null}
+    <div className="group relative h-full min-h-12 w-full min-w-20">
+      <CanvasShapeFrame
+        shape={data.shape}
+        backgroundColor={data.color.background}
+        textColor={data.color.text}
+        selected={selected}
+      >
+        {data.label ? (
+          <span className="max-w-full truncate">{data.label}</span>
+        ) : null}
+      </CanvasShapeFrame>
       <Handle
         id="top"
         type="source"
