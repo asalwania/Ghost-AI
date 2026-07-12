@@ -47,6 +47,7 @@ Update this file whenever the current phase, active feature, or implementation s
 - Implemented the base collaborative canvas (feature 11): added shared canvas node/edge types and palette constants in `types/canvas.ts`, typed Liveblocks storage for the React Flow document, replaced the workspace placeholder with a Liveblocks-backed React Flow canvas wrapper using `/api/liveblocks-auth`, initialized empty synced nodes and edges with `useLiveblocksFlow({ suspense: true })`, and rendered the base canvas with loose connections, fit view, MiniMap, and dot-pattern background.
 - Implemented the shape panel (feature 12): added shared shape drag payload constants and default node sizes, a bottom-centered draggable shape toolbar, React Flow dragover/drop handling that converts screen coordinates to canvas coordinates, custom `canvasNode` rendering, and new-node creation with empty labels, the default node color, the dragged shape, and the custom canvas node type.
 - Implemented node shape rendering and drag preview (feature 13): added a shared `CanvasShapeFrame` renderer, switched canvas nodes from the placeholder rounded rectangle to shape-specific CSS/SVG rendering, preserved Liveblocks-backed node shape/color/selection state, and added a cursor-attached ghost preview for shape-panel drags without changing dropped-node creation.
+- Implemented node editing (feature 14): added selected-node resize handles with minimum dimensions, inline centered label editing with placeholder text, textarea focus/blur/Escape behavior, label updates through React Flow's controlled node update flow, and text-editing interaction guards so editing does not drag or pan the canvas.
 
 ## In Progress
 
@@ -54,7 +55,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Feature 14 - Node editing.
+- Feature 15 - Node color toolbar.
 
 ## Open Questions
 
@@ -93,3 +94,4 @@ Update this file whenever the current phase, active feature, or implementation s
 - `npm.cmd run lint` and `npm.cmd run build` both pass after the base collaborative canvas (feature 11): `types/canvas.ts`, `components/editor/canvas-room.tsx`, `components/editor/workspace-shell.tsx`, `liveblocks.config.ts`, and React Flow global styling.
 - `npm.cmd run build` and `npm.cmd run lint` both pass after the shape panel (feature 12): `types/canvas.ts`, `components/editor/canvas-room.tsx`, `components/editor/canvas-node.tsx`, and `components/editor/shape-panel.tsx`.
 - `npm.cmd run build` and `npm.cmd run lint` both pass after node shape rendering and drag preview (feature 13): `components/editor/canvas-shape.tsx`, `components/editor/canvas-node.tsx`, `components/editor/canvas-room.tsx`, `components/editor/shape-panel.tsx`, and `context/progress-tracker.md`.
+- `npm.cmd run lint` and `npm.cmd run build` both pass after node editing (feature 14): `components/editor/canvas-node.tsx` and `context/progress-tracker.md`.
