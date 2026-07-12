@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Geist, Geist_Mono } from "next/font/google";
+import "@xyflow/react/dist/style.css";
 import "./globals.css";
 import {
   clerkAppearance,

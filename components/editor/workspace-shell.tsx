@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { BotMessageSquare, Share2 } from "lucide-react";
 
+import { CanvasRoom } from "@/components/editor/canvas-room";
 import { ProjectDialogs } from "@/components/editor/project-dialogs";
 import { ProjectSidebar } from "@/components/editor/project-sidebar";
 import { ShareDialog } from "@/components/editor/share-dialog";
@@ -46,7 +47,9 @@ function WorkspaceNavbar({
             size="icon"
             className="border border-surface-border bg-subtle text-copy-secondary hover:bg-elevated hover:text-copy-primary"
             onClick={onToggleSidebar}
-            aria-label={isSidebarOpen ? "Close project sidebar" : "Open project sidebar"}
+            aria-label={
+              isSidebarOpen ? "Close project sidebar" : "Open project sidebar"
+            }
           >
             {/* Simple grid/hamburger icon pairs with the existing editor chrome */}
             <svg
@@ -66,7 +69,15 @@ function WorkspaceNavbar({
                 </>
               ) : (
                 <>
-                  <rect x="3" y="3" width="6" height="14" rx="1" strokeDasharray="2 1" opacity="0.4" />
+                  <rect
+                    x="3"
+                    y="3"
+                    width="6"
+                    height="14"
+                    rx="1"
+                    strokeDasharray="2 1"
+                    opacity="0.4"
+                  />
                   <line x1="13" y1="7" x2="17" y2="7" />
                   <line x1="13" y1="10" x2="17" y2="10" />
                   <line x1="13" y1="13" x2="17" y2="13" />
@@ -163,31 +174,12 @@ export function WorkspaceShell({
         onDeleteProject={projectActions.openDeleteDialog}
       />
 
-      {/* Canvas placeholder (center) */}
+      {/* Canvas (center) */}
       <main
         id="workspace-canvas"
-        className="flex flex-1 flex-col items-center justify-center pt-16 bg-base"
+        className="relative flex flex-1 bg-base pt-16"
       >
-        <div className="flex flex-col items-center gap-4 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-surface-border bg-elevated text-copy-faint">
-            {/* Grid dots — canvas metaphor */}
-            <svg
-              viewBox="0 0 32 32"
-              fill="currentColor"
-              className="h-8 w-8"
-              aria-hidden
-            >
-              {[4, 10, 16, 22, 28].flatMap((x) =>
-                [4, 10, 16, 22, 28].map((y) => (
-                  <circle key={`${x}-${y}`} cx={x} cy={y} r={1.2} />
-                ))
-              )}
-            </svg>
-          </div>
-          <p className="text-sm text-copy-muted">
-            Canvas coming soon&nbsp;— workspace is ready.
-          </p>
-        </div>
+        <CanvasRoom roomId={projectId} />
       </main>
 
       {/* AI sidebar placeholder (right) */}
@@ -207,9 +199,7 @@ export function WorkspaceShell({
           </span>
         </div>
         <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-          <p className="text-sm text-copy-muted">
-            AI chat coming soon.
-          </p>
+          <p className="text-sm text-copy-muted">AI chat coming soon.</p>
         </div>
       </aside>
 
