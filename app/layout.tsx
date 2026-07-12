@@ -1,6 +1,14 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Geist, Geist_Mono } from "next/font/google";
+import "@xyflow/react/dist/style.css";
 import "./globals.css";
+import {
+  clerkAppearance,
+  clerkPostAuthRedirectUrl,
+  clerkSignInUrl,
+  clerkSignUpUrl,
+} from "@/lib/clerk";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,7 +36,17 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="min-h-screen bg-base font-sans text-copy-primary antialiased">
-        {children}
+        <ClerkProvider
+          appearance={clerkAppearance}
+          signInFallbackRedirectUrl={clerkPostAuthRedirectUrl}
+          signInForceRedirectUrl={clerkPostAuthRedirectUrl}
+          signInUrl={clerkSignInUrl}
+          signUpFallbackRedirectUrl={clerkPostAuthRedirectUrl}
+          signUpForceRedirectUrl={clerkPostAuthRedirectUrl}
+          signUpUrl={clerkSignUpUrl}
+        >
+          {children}
+        </ClerkProvider>
       </body>
     </html>
   );

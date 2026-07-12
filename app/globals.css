@@ -68,3 +68,39 @@ body {
   background: var(--accent-primary-dim);
   color: var(--text-primary);
 }
+
+.ghost-canvas {
+  background: var(--bg-base);
+}
+
+.ghost-canvas .react-flow__pane {
+  cursor: grab;
+}
+
+.ghost-canvas .react-flow__pane:active {
+  cursor: grabbing;
+}
+
+.ghost-canvas .react-flow__edge-path {
+  stroke: var(--text-secondary);
+  stroke-width: 1.25;
+}
+
+.ghost-canvas .react-flow__connection-path {
+  stroke: var(--accent-primary);
+  stroke-width: 1.25;
+}
+
+.ghost-canvas .react-flow__minimap {
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: 0.75rem;
+  background: var(--bg-elevated);
+}
+
+.ghost-canvas .react-flow__attribution {
+  border: 1px solid var(--border-default);
+  border-radius: 0.75rem 0 0 0;
+  background: var(--bg-surface);
+  color: var(--text-muted);
+}
