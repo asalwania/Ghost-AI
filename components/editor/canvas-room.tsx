@@ -21,7 +21,9 @@ import {
   ReactFlowProvider,
   useReactFlow,
   type Connection,
+  type EdgeChange,
   type EdgeTypes,
+  type NodeChange,
   type NodeTypes,
   type ReactFlowInstance,
 } from "@xyflow/react";
@@ -42,6 +44,7 @@ import { Button } from "@/components/ui/button";
 import { CanvasEdgeRenderer } from "@/components/editor/canvas-edge";
 import { CanvasNodeRenderer } from "@/components/editor/canvas-node";
 import { CanvasShapeFrame } from "@/components/editor/canvas-shape";
+import type { CanvasTemplate } from "@/components/editor/starter-templates";
 import { ShapePanel } from "@/components/editor/shape-panel";
 import {
   CANVAS_VIEWPORT_ANIMATION,
@@ -83,6 +86,20 @@ const CANVAS_CONTROL_BUTTON_CLASS =
 
 interface CanvasRoomProps {
   roomId: string;
+  templateImport?: CanvasTemplateImportRequest | null;
+}
+
+export interface CanvasTemplateImportRequest {
+  requestId: number;
+  template: CanvasTemplate;
+}
+
+interface CanvasFlowProps {
+  templateImport?: CanvasTemplateImportRequest | null;
+}
+
+interface CanvasFlowInnerProps {
+  templateImport?: CanvasTemplateImportRequest | null;
 }
 
 interface CanvasErrorBoundaryState {
@@ -368,7 +385,31 @@ function normalizeCanvasEdge(edge: CanvasEdge): CanvasEdge {
   };
 }
 
-function CanvasFlowInner() {
+function cloneTemplateNode(node: CanvasNode): CanvasNode {
+  return {
+    ...node,
+    selected: false,
+    dragging: false,
+    position: { ...node.position },
+    data: {
+      ...node.data,
+    },
+    style: node.style ? { ...node.style } : undefined,
+  };
+}
+
+function cloneTemplateEdge(edge: CanvasEdge): CanvasEdge {
+  return {
+    ...edge,
+    selected: false,
+    data: {
+      label: edge.data?.label ?? "",
+    },
+    style: edge.style ? { ...edge.style } : undefined,
+  };
+}
+
+function CanvasFlowInner({ templateImport }: CanvasFlowInnerProps) {
   const {
     nodes,
     edges,
@@ -387,6 +428,7 @@ function CanvasFlowInner() {
   const canUndo = useCanUndo();
   const canRedo = useCanRedo();
   const nodeIdCounter = useRef(0);
+  const lastTemplateImportRequestId = useRef<number | null>(null);
   const [dragPreview, setDragPreview] =
     useState<ShapeDragPreviewState | null>(null);
   const canvasEdges = useMemo(
@@ -411,6 +453,52 @@ function CanvasFlowInner() {
     onUndo: handleUndo,
     onRedo: handleRedo,
   });
+
+  useEffect(() => {
+    if (
+      !templateImport ||
+      lastTemplateImportRequestId.current === templateImport.requestId
+    ) {
+      return;
+    }
+
+    lastTemplateImportRequestId.current = templateImport.requestId;
+
+    const nextNodes = templateImport.template.nodes.map(cloneTemplateNode);
+    const nextEdges = templateImport.template.edges.map(cloneTemplateEdge);
+    const nodeChanges: NodeChange<CanvasNode>[] = nextNodes.map(
+      (node, index) => ({
+        type: "add",
+        item: node,
+        index,
+      })
+    );
+    const edgeChanges: EdgeChange<CanvasEdge>[] = nextEdges.map(
+      (edge, index) => ({
+        type: "add",
+        item: edge,
+        index,
+      })
+    );
+
+    onDelete({ nodes, edges });
+    onNodesChange(nodeChanges);
+    onEdgesChange(edgeChanges);
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        void reactFlow.fitView(CANVAS_FIT_VIEW_OPTIONS);
+      });
+    });
+  }, [
+    edges,
+    nodes,
+    onDelete,
+    onEdgesChange,
+    onNodesChange,
+    reactFlow,
+    templateImport,
+  ]);
 
   const updateShapeDragPreviewPosition = useCallback(
     (event: DragClientPointSource) => {
@@ -599,15 +687,15 @@ function CanvasFlowInner() {
   );
 }
 
-function CanvasFlow() {
+function CanvasFlow({ templateImport }: CanvasFlowProps) {
   return (
     <ReactFlowProvider>
-      <CanvasFlowInner />
+      <CanvasFlowInner templateImport={templateImport} />
     </ReactFlowProvider>
   );
 }
 
-export function CanvasRoom({ roomId }: CanvasRoomProps) {
+export function CanvasRoom({ roomId, templateImport }: CanvasRoomProps) {
   return (
     <div className="h-full w-full">
       <CanvasErrorBoundary>
@@ -618,7 +706,7 @@ export function CanvasRoom({ roomId }: CanvasRoomProps) {
           >
             <LiveblocksErrorGate>
               <ClientSideSuspense fallback={<CanvasFallback title="Connecting canvas" />}>
-                {() => <CanvasFlow />}
+                {() => <CanvasFlow templateImport={templateImport} />}
               </ClientSideSuspense>
             </LiveblocksErrorGate>
           </RoomProvider>

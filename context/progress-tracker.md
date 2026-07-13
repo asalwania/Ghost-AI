@@ -51,6 +51,7 @@ Update this file whenever the current phase, active feature, or implementation s
 - Implemented the node color toolbar (feature 15): selected nodes now show a floating swatch toolbar above the node, each swatch applies one predefined background/text color pair through the existing Liveblocks-backed React Flow node data, and toolbar interactions are guarded from dragging or panning the canvas.
 - Implemented edge behavior (feature 16): nodes expose subtle four-sided connection handles that can start and receive connections, new connections are stored as custom `canvasEdge` edges, and custom edges now use right-angle routing, dim/bright active states, wide interaction hit paths, arrowheads, and inline collaborative label editing via `EdgeLabelRenderer`.
 - Implemented canvas ergonomics (feature 17): added a floating bottom-left zoom/history control bar, wired zoom actions to the React Flow instance with short animations, wired undo/redo to Liveblocks history with disabled states, added `hooks/useKeyboardShortcuts.ts` for zoom and history shortcuts that skip editable fields, and removed the bottom-right minimap.
+- Implemented starter templates (feature 18): added a typed static template library, a scrollable import modal with lightweight diagram previews, a workspace navbar entry point, and Liveblocks-backed canvas replacement that clears the current canvas, imports the selected template, and fits the view.
 
 ## In Progress
 
@@ -58,7 +59,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Feature 18 - Starter template.
+- Feature 19 - Presence avatars cursor.
 
 ## Open Questions
 
@@ -101,3 +102,4 @@ Update this file whenever the current phase, active feature, or implementation s
 - `npm.cmd run build` and `npm.cmd run lint` both pass after the node color toolbar (feature 15): `components/editor/canvas-node.tsx` and `context/progress-tracker.md`.
 - `npm.cmd run lint` and `npm.cmd run build` both pass after edge behavior (feature 16): `components/editor/canvas-edge.tsx`, `components/editor/canvas-room.tsx`, `components/editor/canvas-node.tsx`, and `context/progress-tracker.md`.
 - `npm.cmd run build` and `npm.cmd run lint` both pass after canvas ergonomics (feature 17): `components/editor/canvas-room.tsx`, `hooks/useKeyboardShortcuts.ts`, and `context/progress-tracker.md`. The first lint attempt hit the shell timeout before reporting results; the longer rerun completed successfully.
+- `npm.cmd run build` and `npm.cmd run lint` both pass after starter templates (feature 18): `components/editor/starter-templates.ts`, `components/editor/starter-templates-modal.tsx`, `components/editor/workspace-shell.tsx`, `components/editor/canvas-room.tsx`, and `context/progress-tracker.md`.

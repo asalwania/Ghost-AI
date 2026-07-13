@@ -1,12 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { BotMessageSquare, Share2 } from "lucide-react";
+import { useCallback, useRef, useState } from "react";
+import { BotMessageSquare, LayoutTemplate, Share2 } from "lucide-react";
 
-import { CanvasRoom } from "@/components/editor/canvas-room";
+import {
+  CanvasRoom,
+  type CanvasTemplateImportRequest,
+} from "@/components/editor/canvas-room";
 import { ProjectDialogs } from "@/components/editor/project-dialogs";
 import { ProjectSidebar } from "@/components/editor/project-sidebar";
 import { ShareDialog } from "@/components/editor/share-dialog";
+import type { CanvasTemplate } from "@/components/editor/starter-templates";
+import { StarterTemplatesModal } from "@/components/editor/starter-templates-modal";
 import { Button } from "@/components/ui/button";
 import type { EditorProject } from "@/hooks/use-project-actions";
 import { useProjectActions } from "@/hooks/use-project-actions";
@@ -19,6 +24,7 @@ interface WorkspaceNavbarProps {
   isAiPanelOpen: boolean;
   onToggleSidebar: () => void;
   onToggleAiPanel: () => void;
+  onOpenTemplates: () => void;
   onShare: () => void;
 }
 
@@ -28,6 +34,7 @@ function WorkspaceNavbar({
   isAiPanelOpen,
   onToggleSidebar,
   onToggleAiPanel,
+  onOpenTemplates,
   onShare,
 }: WorkspaceNavbarProps) {
   return (
@@ -100,6 +107,19 @@ function WorkspaceNavbar({
         {/* Right: share + AI sidebar toggle */}
         <div className="flex shrink-0 items-center gap-2">
           <Button
+            id="workspace-starter-templates-btn"
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onOpenTemplates}
+            aria-label="Open starter templates"
+            className="border-surface-border bg-subtle text-copy-secondary hover:bg-elevated hover:text-copy-primary"
+          >
+            <LayoutTemplate className="h-4 w-4" />
+            <span className="hidden md:inline">Templates</span>
+          </Button>
+
+          <Button
             id="workspace-share-btn"
             type="button"
             variant="outline"
@@ -148,8 +168,19 @@ export function WorkspaceShell({
 }: WorkspaceShellProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+  const [templateImportRequest, setTemplateImportRequest] =
+    useState<CanvasTemplateImportRequest | null>(null);
+  const templateImportRequestId = useRef(0);
   const projectActions = useProjectActions(initialProjects);
   const shareDialog = useShareDialog({ projectId, isOwner });
+  const handleTemplateImport = useCallback((template: CanvasTemplate) => {
+    templateImportRequestId.current += 1;
+    setTemplateImportRequest({
+      requestId: templateImportRequestId.current,
+      template,
+    });
+  }, []);
 
   return (
     <div className="relative flex h-screen overflow-hidden bg-base">
@@ -160,6 +191,7 @@ export function WorkspaceShell({
         isAiPanelOpen={isAiPanelOpen}
         onToggleSidebar={() => setIsSidebarOpen((v) => !v)}
         onToggleAiPanel={() => setIsAiPanelOpen((v) => !v)}
+        onOpenTemplates={() => setIsTemplatesOpen(true)}
         onShare={() => shareDialog.setOpen(true)}
       />
 
@@ -179,7 +211,10 @@ export function WorkspaceShell({
         id="workspace-canvas"
         className="relative flex flex-1 bg-base pt-16"
       >
-        <CanvasRoom roomId={projectId} />
+        <CanvasRoom
+          roomId={projectId}
+          templateImport={templateImportRequest}
+        />
       </main>
 
       {/* AI sidebar placeholder (right) */}
@@ -215,6 +250,13 @@ export function WorkspaceShell({
         onCreateProject={projectActions.createProject}
         onRenameProject={projectActions.renameProject}
         onDeleteProject={projectActions.deleteProject}
+      />
+
+      {/* Starter template import dialog */}
+      <StarterTemplatesModal
+        open={isTemplatesOpen}
+        onOpenChange={setIsTemplatesOpen}
+        onImport={handleTemplateImport}
       />
 
       {/* Share dialog */}
