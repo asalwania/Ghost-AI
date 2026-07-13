@@ -28,7 +28,16 @@ import {
   type NodeTypes,
   type ReactFlowInstance,
 } from "@xyflow/react";
-import { Maximize2, Redo2, Undo2, ZoomIn, ZoomOut } from "lucide-react";
+import {
+  AlertCircle,
+  Loader2,
+  Maximize2,
+  Redo2,
+  Save,
+  Undo2,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 import {
   Component,
   type DragEvent as ReactDragEvent,
@@ -56,6 +65,12 @@ import {
   CANVAS_VIEWPORT_ANIMATION,
   useKeyboardShortcuts,
 } from "@/hooks/useKeyboardShortcuts";
+import {
+  useCanvasAutosave,
+  type CanvasSaveStatus,
+} from "@/hooks/use-canvas-autosave";
+import { parseCanvasSnapshot } from "@/lib/canvas-snapshot";
+import { cn } from "@/lib/utils";
 import {
   CANVAS_EDGE_TYPE,
   CANVAS_NODE_TYPE,
@@ -101,10 +116,12 @@ export interface CanvasTemplateImportRequest {
 }
 
 interface CanvasFlowProps {
+  roomId: string;
   templateImport?: CanvasTemplateImportRequest | null;
 }
 
 interface CanvasFlowInnerProps {
+  roomId: string;
   templateImport?: CanvasTemplateImportRequest | null;
 }
 
@@ -133,6 +150,13 @@ interface CanvasControlBarProps {
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+}
+
+interface CanvasSaveButtonProps {
+  status: CanvasSaveStatus;
+  isLoading: boolean;
+  lastSavedAt: Date | null;
+  onSave: () => void;
 }
 
 class CanvasErrorBoundary extends Component<
@@ -234,6 +258,20 @@ function readShapeDragPayload(
   } catch {
     return null;
   }
+}
+
+function readSavedCanvasPayload(payload: unknown) {
+  if (!payload || typeof payload !== "object" || !("canvas" in payload)) {
+    return null;
+  }
+
+  const canvas = (payload as { canvas?: unknown }).canvas;
+
+  return canvas ? parseCanvasSnapshot(canvas) : null;
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
 }
 
 function readDragClientPoint(
@@ -371,6 +409,68 @@ function CanvasControlBar({
   );
 }
 
+function CanvasSaveButton({
+  status,
+  isLoading,
+  lastSavedAt,
+  onSave,
+}: CanvasSaveButtonProps) {
+  const isSaving = status === "saving";
+  const isError = status === "error";
+  const label = isLoading
+    ? "Loading"
+    : status === "saving"
+      ? "Saving"
+      : status === "error"
+        ? "Error"
+        : "Saved";
+  const title =
+    status === "saved" && lastSavedAt
+      ? `Saved at ${lastSavedAt.toLocaleTimeString([], {
+          hour: "numeric",
+          minute: "2-digit",
+        })}`
+      : label;
+  const Icon = isLoading || isSaving ? Loader2 : isError ? AlertCircle : Save;
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      title={title}
+      aria-label={title}
+      disabled={isLoading || isSaving}
+      className={cn(
+        "nodrag nopan nowheel absolute left-6 top-4 z-20 h-9 rounded-full border-surface-border bg-surface/90 px-3 text-xs font-medium text-copy-secondary shadow-lg backdrop-blur-md hover:bg-subtle hover:text-copy-primary",
+        isError &&
+          "border-state-error/50 text-state-error hover:text-state-error",
+        status === "saved" &&
+          !isLoading &&
+          "border-state-success/40 text-state-success hover:text-state-success"
+      )}
+      onClick={onSave}
+    >
+      <Icon
+        className={cn("h-4 w-4", (isLoading || isSaving) && "animate-spin")}
+        aria-hidden
+      />
+      <span>{label}</span>
+    </Button>
+  );
+}
+
+function CanvasLoadingOverlay() {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+      <div className="flex items-center gap-2 rounded-full border border-surface-border bg-surface/90 px-4 py-2 text-sm font-medium text-copy-secondary shadow-lg backdrop-blur-md">
+        <Loader2 className="h-4 w-4 animate-spin text-brand" aria-hidden />
+        <span>Loading canvas</span>
+      </div>
+    </div>
+  );
+}
+
 function normalizeCanvasEdge(edge: CanvasEdge): CanvasEdge {
   if (
     edge.type === CANVAS_EDGE_TYPE &&
@@ -415,7 +515,7 @@ function cloneTemplateEdge(edge: CanvasEdge): CanvasEdge {
   };
 }
 
-function CanvasFlowInner({ templateImport }: CanvasFlowInnerProps) {
+function CanvasFlowInner({ roomId, templateImport }: CanvasFlowInnerProps) {
   const {
     nodes,
     edges,
@@ -442,6 +542,121 @@ function CanvasFlowInner({ templateImport }: CanvasFlowInnerProps) {
     () => edges.map((edge) => normalizeCanvasEdge(edge)),
     [edges]
   );
+  const [hasCheckedSavedCanvas, setHasCheckedSavedCanvas] = useState(false);
+  const roomHasCanvasContent = nodes.length > 0 || edges.length > 0;
+  const [hasSkippedSavedLoad, setHasSkippedSavedLoad] =
+    useState(roomHasCanvasContent);
+  const [isLoadingSavedCanvas, setIsLoadingSavedCanvas] = useState(false);
+  const latestCanvasRef = useRef({ nodes, edges });
+  const hasResolvedInitialCanvas =
+    hasCheckedSavedCanvas || roomHasCanvasContent || hasSkippedSavedLoad;
+  const autosave = useCanvasAutosave({
+    projectId: roomId,
+    nodes,
+    edges,
+    enabled: hasResolvedInitialCanvas,
+  });
+
+  useEffect(() => {
+    latestCanvasRef.current = { nodes, edges };
+  }, [edges, nodes]);
+
+  useEffect(() => {
+    if (!roomHasCanvasContent || hasSkippedSavedLoad) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setHasSkippedSavedLoad(true);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [hasSkippedSavedLoad, roomHasCanvasContent]);
+
+  useEffect(() => {
+    if (roomHasCanvasContent) {
+      return;
+    }
+
+    if (hasCheckedSavedCanvas || hasSkippedSavedLoad) {
+      return;
+    }
+
+    const abortController = new AbortController();
+    let cancelled = false;
+
+    async function loadSavedCanvas() {
+      setIsLoadingSavedCanvas(true);
+
+      try {
+        const response = await fetch(`/api/projects/${roomId}/canvas`, {
+          signal: abortController.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Canvas load failed with status ${response.status}`);
+        }
+
+        const payload: unknown = await response.json();
+        const savedCanvas = readSavedCanvasPayload(payload);
+
+        if (!savedCanvas) {
+          return;
+        }
+
+        const latestCanvas = latestCanvasRef.current;
+
+        if (latestCanvas.nodes.length > 0 || latestCanvas.edges.length > 0) {
+          return;
+        }
+
+        onNodesChange(
+          savedCanvas.nodes.map((node, index) => ({
+            type: "add",
+            item: node,
+            index,
+          }))
+        );
+        onEdgesChange(
+          savedCanvas.edges.map((edge, index) => ({
+            type: "add",
+            item: edge,
+            index,
+          }))
+        );
+
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => {
+            void reactFlow.fitView(CANVAS_FIT_VIEW_OPTIONS);
+          });
+        });
+      } catch (error) {
+        if (!cancelled && !isAbortError(error)) {
+          console.error("Saved canvas load failed", error);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingSavedCanvas(false);
+          setHasCheckedSavedCanvas(true);
+        }
+      }
+    }
+
+    void loadSavedCanvas();
+
+    return () => {
+      cancelled = true;
+      abortController.abort();
+    };
+  }, [
+    hasCheckedSavedCanvas,
+    hasSkippedSavedLoad,
+    onEdgesChange,
+    onNodesChange,
+    reactFlow,
+    roomHasCanvasContent,
+    roomId,
+  ]);
 
   const handleUndo = useCallback(() => {
     if (canUndo) {
@@ -701,6 +916,12 @@ function CanvasFlowInner({ templateImport }: CanvasFlowInnerProps) {
           onUndo={handleUndo}
           onRedo={handleRedo}
         />
+        <CanvasSaveButton
+          status={autosave.status}
+          isLoading={isLoadingSavedCanvas}
+          lastSavedAt={autosave.lastSavedAt}
+          onSave={autosave.saveNow}
+        />
         <ShapePanel
           onShapeDragStart={handleShapeDragStart}
           onShapeDrag={handleShapeDragMove}
@@ -708,16 +929,17 @@ function CanvasFlowInner({ templateImport }: CanvasFlowInnerProps) {
         />
         <LiveCursorLayer />
       </ReactFlow>
+      {isLoadingSavedCanvas ? <CanvasLoadingOverlay /> : null}
       <CanvasPresenceOverlay />
       {dragPreview ? <ShapeDragPreview dragPreview={dragPreview} /> : null}
     </div>
   );
 }
 
-function CanvasFlow({ templateImport }: CanvasFlowProps) {
+function CanvasFlow({ roomId, templateImport }: CanvasFlowProps) {
   return (
     <ReactFlowProvider>
-      <CanvasFlowInner templateImport={templateImport} />
+      <CanvasFlowInner roomId={roomId} templateImport={templateImport} />
     </ReactFlowProvider>
   );
 }
@@ -733,7 +955,9 @@ export function CanvasRoom({ roomId, templateImport }: CanvasRoomProps) {
           >
             <LiveblocksErrorGate>
               <ClientSideSuspense fallback={<CanvasFallback title="Connecting canvas" />}>
-                {() => <CanvasFlow templateImport={templateImport} />}
+                {() => (
+                  <CanvasFlow roomId={roomId} templateImport={templateImport} />
+                )}
               </ClientSideSuspense>
             </LiveblocksErrorGate>
           </RoomProvider>

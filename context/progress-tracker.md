@@ -54,6 +54,7 @@ Update this file whenever the current phase, active feature, or implementation s
 - Implemented starter templates (feature 18): added a typed static template library, a scrollable import modal with lightweight diagram previews, a workspace navbar entry point, and Liveblocks-backed canvas replacement that clears the current canvas, imports the selected template, and fits the view.
 - Implemented presence avatars and live cursors (feature 19): added a canvas-only top-right participant group with collaborator avatars filtered against the active Clerk user, kept the current user as the Clerk `UserButton`, added overflow and conditional divider behavior, broadcast React Flow cursor coordinates through Liveblocks presence, rendered other participants' named colored cursors, and aligned the shared presence type to `cursor` plus `thinking`.
 - Implemented the AI sidebar shell (feature 20): extracted the right slide-over into `components/editor/ai-sidebar.tsx`, added the `AI Workspace` header with close control, added `AI Architect` and `Specs` tabs, built the local-only chat empty state/starter prompts/input behavior, and added the static generate-spec panel with a disabled download action.
+- Implemented canvas autosave (feature 21): installed `@vercel/blob`, added authenticated canvas save/load routes backed by Vercel Blob and `Project.canvasJsonPath`, added sanitized canvas snapshot parsing, added a debounced autosave hook with saving/saved/error status, loaded saved snapshots only when the Liveblocks room is empty, and added a canvas save status button plus loading overlay.
 
 ## In Progress
 
@@ -61,7 +62,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Feature 21 - Canvas autosave.
+- None.
 
 ## Open Questions
 
@@ -107,3 +108,4 @@ Update this file whenever the current phase, active feature, or implementation s
 - `npm.cmd run build` and `npm.cmd run lint` both pass after starter templates (feature 18): `components/editor/starter-templates.ts`, `components/editor/starter-templates-modal.tsx`, `components/editor/workspace-shell.tsx`, `components/editor/canvas-room.tsx`, and `context/progress-tracker.md`.
 - `npm.cmd run lint` and `npm.cmd run build` both pass after presence avatars and live cursors (feature 19): `components/editor/canvas-presence.tsx`, `components/editor/canvas-room.tsx`, `liveblocks.config.ts`, and `context/progress-tracker.md`.
 - `npm.cmd run lint` and `npm.cmd run build` both pass after the AI sidebar shell (feature 20): `components/editor/ai-sidebar.tsx`, `components/editor/workspace-shell.tsx`, and `context/progress-tracker.md`.
+- `npm.cmd run lint` and `npm.cmd run build` both pass after canvas autosave (feature 21): `@vercel/blob`, `app/api/projects/[projectId]/canvas/route.ts`, `lib/canvas-snapshot.ts`, `hooks/use-canvas-autosave.ts`, `components/editor/canvas-room.tsx`, `types/canvas.ts`, and `context/progress-tracker.md`.

@@ -2,12 +2,34 @@
 
 import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
-import { ClerkFailed, ClerkLoaded, ClerkLoading } from "@clerk/nextjs";
+import { useEffect } from "react";
+import { ClerkFailed, ClerkLoaded, ClerkLoading, useAuth } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { editorPath } from "@/lib/clerk";
 
 interface ClerkAuthStatusProps {
   children: ReactNode;
+}
+
+/**
+ * Redirect guard: if Clerk loads and finds an active session on the client
+ * (e.g. after a fresh tab open in dev mode where the server-side cookie
+ * handshake wasn't complete yet), push the user straight to the editor
+ * instead of showing the sign-in form.
+ */
+function AlreadySignedInRedirect() {
+  const { isSignedIn, isLoaded } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      router.replace(editorPath);
+    }
+  }, [isLoaded, isSignedIn, router]);
+
+  return null;
 }
 
 export function ClerkAuthStatus({ children }: ClerkAuthStatusProps) {
@@ -52,7 +74,10 @@ export function ClerkAuthStatus({ children }: ClerkAuthStatusProps) {
         </div>
       </ClerkFailed>
 
-      <ClerkLoaded>{children}</ClerkLoaded>
+      <ClerkLoaded>
+        <AlreadySignedInRedirect />
+        {children}
+      </ClerkLoaded>
     </>
   );
 }
