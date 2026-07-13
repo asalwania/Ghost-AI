@@ -8,13 +8,17 @@ import {
 } from "@liveblocks/react";
 import { useLiveblocksFlow } from "@liveblocks/react-flow";
 import {
+  addEdge,
   Background,
   BackgroundVariant,
+  ConnectionLineType,
   ConnectionMode,
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
+  type Connection,
+  type EdgeTypes,
   type NodeTypes,
 } from "@xyflow/react";
 import {
@@ -24,14 +28,17 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 
+import { CanvasEdgeRenderer } from "@/components/editor/canvas-edge";
 import { CanvasNodeRenderer } from "@/components/editor/canvas-node";
 import { CanvasShapeFrame } from "@/components/editor/canvas-shape";
 import { ShapePanel } from "@/components/editor/shape-panel";
 import {
+  CANVAS_EDGE_TYPE,
   CANVAS_NODE_TYPE,
   CANVAS_SHAPE_DRAG_MIME,
   DEFAULT_NODE_COLOR,
@@ -48,6 +55,15 @@ const INITIAL_EDGES: CanvasEdge[] = [];
 const CANVAS_NODE_TYPES: NodeTypes = {
   [CANVAS_NODE_TYPE]: CanvasNodeRenderer,
 };
+const CANVAS_EDGE_TYPES: EdgeTypes = {
+  [CANVAS_EDGE_TYPE]: CanvasEdgeRenderer,
+};
+const DEFAULT_CANVAS_EDGE_INTERACTION_WIDTH = 24;
+const DEFAULT_CANVAS_EDGE_OPTIONS = {
+  type: CANVAS_EDGE_TYPE,
+  data: { label: "" },
+  interactionWidth: DEFAULT_CANVAS_EDGE_INTERACTION_WIDTH,
+} satisfies Pick<CanvasEdge, "type" | "data" | "interactionWidth">;
 
 interface CanvasRoomProps {
   roomId: string;
@@ -217,13 +233,32 @@ function ShapeDragPreview({
   );
 }
 
+function normalizeCanvasEdge(edge: CanvasEdge): CanvasEdge {
+  if (
+    edge.type === CANVAS_EDGE_TYPE &&
+    edge.data &&
+    typeof edge.interactionWidth === "number"
+  ) {
+    return edge;
+  }
+
+  return {
+    ...edge,
+    type: CANVAS_EDGE_TYPE,
+    data: {
+      label: edge.data?.label ?? "",
+    },
+    interactionWidth:
+      edge.interactionWidth ?? DEFAULT_CANVAS_EDGE_INTERACTION_WIDTH,
+  };
+}
+
 function CanvasFlowInner() {
   const {
     nodes,
     edges,
     onNodesChange,
     onEdgesChange,
-    onConnect,
     onDelete,
   } = useLiveblocksFlow<CanvasNode, CanvasEdge>({
     suspense: true,
@@ -234,6 +269,10 @@ function CanvasFlowInner() {
   const nodeIdCounter = useRef(0);
   const [dragPreview, setDragPreview] =
     useState<ShapeDragPreviewState | null>(null);
+  const canvasEdges = useMemo(
+    () => edges.map((edge) => normalizeCanvasEdge(edge)),
+    [edges]
+  );
 
   const updateShapeDragPreviewPosition = useCallback(
     (event: DragClientPointSource) => {
@@ -348,20 +387,54 @@ function CanvasFlowInner() {
     [clearShapeDragPreview, onNodesChange, screenToFlowPosition]
   );
 
+  const handleConnect = useCallback(
+    (connection: Connection) => {
+      const [newEdge] = addEdge<CanvasEdge>(connection, []);
+
+      if (!newEdge) {
+        return;
+      }
+
+      const canvasEdge: CanvasEdge = {
+        ...newEdge,
+        type: CANVAS_EDGE_TYPE,
+        data: { label: "" },
+        interactionWidth: DEFAULT_CANVAS_EDGE_INTERACTION_WIDTH,
+      };
+
+      onEdgesChange([
+        {
+          type: "add",
+          item: canvasEdge,
+        },
+      ]);
+    },
+    [onEdgesChange]
+  );
+
   return (
     <div className="relative h-full w-full">
       <ReactFlow<CanvasNode, CanvasEdge>
         className="ghost-canvas h-full w-full bg-base"
         nodes={nodes}
-        edges={edges}
+        edges={canvasEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
+        onConnect={handleConnect}
         onDelete={onDelete}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         nodeTypes={CANVAS_NODE_TYPES}
+        edgeTypes={CANVAS_EDGE_TYPES}
+        defaultEdgeOptions={DEFAULT_CANVAS_EDGE_OPTIONS}
+        connectionLineType={ConnectionLineType.SmoothStep}
+        connectionLineStyle={{
+          stroke: "var(--accent-primary)",
+          strokeLinecap: "round",
+          strokeWidth: 1.4,
+        }}
         connectionMode={ConnectionMode.Loose}
+        elevateEdgesOnSelect
         fitView
       >
         <Background

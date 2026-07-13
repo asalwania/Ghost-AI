@@ -8,6 +8,7 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import {
+  type CSSProperties,
   type ChangeEvent,
   type KeyboardEvent,
   type SyntheticEvent,
@@ -19,7 +20,11 @@ import {
 
 import { CanvasShapeFrame } from "@/components/editor/canvas-shape";
 import { cn } from "@/lib/utils";
-import type { CanvasNode } from "@/types/canvas";
+import {
+  NODE_COLORS,
+  type CanvasNode,
+  type CanvasNodeColor,
+} from "@/types/canvas";
 
 const HANDLE_CLASS =
   "h-2.5 w-2.5 border border-base bg-copy-primary opacity-0 transition-opacity duration-150 group-hover:opacity-100";
@@ -30,8 +35,83 @@ const MIN_NODE_WIDTH = 96;
 const MIN_NODE_HEIGHT = 52;
 const EMPTY_LABEL_PLACEHOLDER = "Untitled node";
 
+interface NodeColorSwatchStyle extends CSSProperties {
+  "--swatch-glow": string;
+}
+
 function stopCanvasInteraction(event: SyntheticEvent) {
   event.stopPropagation();
+}
+
+function isSameNodeColor(
+  firstColor: CanvasNodeColor,
+  secondColor: CanvasNodeColor
+) {
+  return (
+    firstColor.background.toLowerCase() ===
+      secondColor.background.toLowerCase() &&
+    firstColor.text.toLowerCase() === secondColor.text.toLowerCase()
+  );
+}
+
+function NodeColorToolbar({
+  activeColor,
+  onSelectColor,
+}: {
+  activeColor: CanvasNodeColor;
+  onSelectColor: (color: CanvasNodeColor) => void;
+}) {
+  return (
+    <div
+      className="nodrag nopan nowheel absolute left-1/2 top-0 z-20 flex -translate-x-1/2 -translate-y-[calc(100%+0.625rem)] items-center gap-1 rounded-full border border-surface-border bg-surface/90 p-1.5 shadow-lg backdrop-blur-md"
+      role="toolbar"
+      aria-label="Node colors"
+      onClick={stopCanvasInteraction}
+      onDoubleClick={stopCanvasInteraction}
+      onMouseDown={stopCanvasInteraction}
+      onPointerDown={stopCanvasInteraction}
+    >
+      {NODE_COLORS.map((color) => {
+        const isActive = isSameNodeColor(activeColor, color);
+        const swatchStyle: NodeColorSwatchStyle = {
+          "--swatch-glow": `color-mix(in srgb, ${color.text} 34%, transparent)`,
+        };
+
+        return (
+          <button
+            key={`${color.background}-${color.text}`}
+            type="button"
+            aria-label={`Use node color ${color.background}`}
+            aria-pressed={isActive}
+            title={color.background}
+            className={cn(
+              "relative h-7 w-7 rounded-full border border-transparent p-0.5 transition duration-150 hover:shadow-[0_0_0_3px_var(--swatch-glow)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
+              isActive
+                ? "border-brand bg-brand-dim shadow-[0_0_0_1px_var(--accent-primary)]"
+                : "hover:border-surface-border"
+            )}
+            style={swatchStyle}
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelectColor(color);
+            }}
+          >
+            <span
+              className="block h-full w-full rounded-full border border-surface-border-subtle"
+              style={{ backgroundColor: color.background }}
+            />
+            {isActive ? (
+              <span
+                aria-hidden
+                className="absolute inset-2 rounded-full"
+                style={{ backgroundColor: color.text }}
+              />
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 export function CanvasNodeRenderer({
@@ -112,8 +192,21 @@ export function CanvasNodeRenderer({
     [finishEditing]
   );
 
+  const handleColorSelect = useCallback(
+    (color: CanvasNodeColor) => {
+      updateNodeData(id, { color });
+    },
+    [id, updateNodeData]
+  );
+
   return (
     <div className="group relative h-full min-h-12 w-full min-w-20">
+      {selected ? (
+        <NodeColorToolbar
+          activeColor={data.color}
+          onSelectColor={handleColorSelect}
+        />
+      ) : null}
       <NodeResizer
         nodeId={id}
         isVisible={selected}
@@ -167,24 +260,32 @@ export function CanvasNodeRenderer({
         id="top"
         type="source"
         position={Position.Top}
+        isConnectableEnd
+        isConnectableStart
         className={HANDLE_CLASS}
       />
       <Handle
         id="right"
         type="source"
         position={Position.Right}
+        isConnectableEnd
+        isConnectableStart
         className={HANDLE_CLASS}
       />
       <Handle
         id="bottom"
         type="source"
         position={Position.Bottom}
+        isConnectableEnd
+        isConnectableStart
         className={HANDLE_CLASS}
       />
       <Handle
         id="left"
         type="source"
         position={Position.Left}
+        isConnectableEnd
+        isConnectableStart
         className={HANDLE_CLASS}
       />
     </div>

@@ -48,6 +48,8 @@ Update this file whenever the current phase, active feature, or implementation s
 - Implemented the shape panel (feature 12): added shared shape drag payload constants and default node sizes, a bottom-centered draggable shape toolbar, React Flow dragover/drop handling that converts screen coordinates to canvas coordinates, custom `canvasNode` rendering, and new-node creation with empty labels, the default node color, the dragged shape, and the custom canvas node type.
 - Implemented node shape rendering and drag preview (feature 13): added a shared `CanvasShapeFrame` renderer, switched canvas nodes from the placeholder rounded rectangle to shape-specific CSS/SVG rendering, preserved Liveblocks-backed node shape/color/selection state, and added a cursor-attached ghost preview for shape-panel drags without changing dropped-node creation.
 - Implemented node editing (feature 14): added selected-node resize handles with minimum dimensions, inline centered label editing with placeholder text, textarea focus/blur/Escape behavior, label updates through React Flow's controlled node update flow, and text-editing interaction guards so editing does not drag or pan the canvas.
+- Implemented the node color toolbar (feature 15): selected nodes now show a floating swatch toolbar above the node, each swatch applies one predefined background/text color pair through the existing Liveblocks-backed React Flow node data, and toolbar interactions are guarded from dragging or panning the canvas.
+- Implemented edge behavior (feature 16): nodes expose subtle four-sided connection handles that can start and receive connections, new connections are stored as custom `canvasEdge` edges, and custom edges now use right-angle routing, dim/bright active states, wide interaction hit paths, arrowheads, and inline collaborative label editing via `EdgeLabelRenderer`.
 
 ## In Progress
 
@@ -55,7 +57,7 @@ Update this file whenever the current phase, active feature, or implementation s
 
 ## Next Up
 
-- Feature 15 - Node color toolbar.
+- Feature 17 - Canvas ergonomics.
 
 ## Open Questions
 
@@ -95,3 +97,5 @@ Update this file whenever the current phase, active feature, or implementation s
 - `npm.cmd run build` and `npm.cmd run lint` both pass after the shape panel (feature 12): `types/canvas.ts`, `components/editor/canvas-room.tsx`, `components/editor/canvas-node.tsx`, and `components/editor/shape-panel.tsx`.
 - `npm.cmd run build` and `npm.cmd run lint` both pass after node shape rendering and drag preview (feature 13): `components/editor/canvas-shape.tsx`, `components/editor/canvas-node.tsx`, `components/editor/canvas-room.tsx`, `components/editor/shape-panel.tsx`, and `context/progress-tracker.md`.
 - `npm.cmd run lint` and `npm.cmd run build` both pass after node editing (feature 14): `components/editor/canvas-node.tsx` and `context/progress-tracker.md`.
+- `npm.cmd run build` and `npm.cmd run lint` both pass after the node color toolbar (feature 15): `components/editor/canvas-node.tsx` and `context/progress-tracker.md`.
+- `npm.cmd run lint` and `npm.cmd run build` both pass after edge behavior (feature 16): `components/editor/canvas-edge.tsx`, `components/editor/canvas-room.tsx`, `components/editor/canvas-node.tsx`, and `context/progress-tracker.md`.
