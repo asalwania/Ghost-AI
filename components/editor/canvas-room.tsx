@@ -4,7 +4,11 @@ import {
   ClientSideSuspense,
   LiveblocksProvider,
   RoomProvider,
+  useCanRedo,
+  useCanUndo,
   useErrorListener,
+  useRedo,
+  useUndo,
 } from "@liveblocks/react";
 import { useLiveblocksFlow } from "@liveblocks/react-flow";
 import {
@@ -13,14 +17,15 @@ import {
   BackgroundVariant,
   ConnectionLineType,
   ConnectionMode,
-  MiniMap,
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
   type Connection,
   type EdgeTypes,
   type NodeTypes,
+  type ReactFlowInstance,
 } from "@xyflow/react";
+import { Maximize2, Redo2, Undo2, ZoomIn, ZoomOut } from "lucide-react";
 import {
   Component,
   type DragEvent as ReactDragEvent,
@@ -33,10 +38,15 @@ import {
   useState,
 } from "react";
 
+import { Button } from "@/components/ui/button";
 import { CanvasEdgeRenderer } from "@/components/editor/canvas-edge";
 import { CanvasNodeRenderer } from "@/components/editor/canvas-node";
 import { CanvasShapeFrame } from "@/components/editor/canvas-shape";
 import { ShapePanel } from "@/components/editor/shape-panel";
+import {
+  CANVAS_VIEWPORT_ANIMATION,
+  useKeyboardShortcuts,
+} from "@/hooks/useKeyboardShortcuts";
 import {
   CANVAS_EDGE_TYPE,
   CANVAS_NODE_TYPE,
@@ -64,6 +74,12 @@ const DEFAULT_CANVAS_EDGE_OPTIONS = {
   data: { label: "" },
   interactionWidth: DEFAULT_CANVAS_EDGE_INTERACTION_WIDTH,
 } satisfies Pick<CanvasEdge, "type" | "data" | "interactionWidth">;
+const CANVAS_FIT_VIEW_OPTIONS = {
+  ...CANVAS_VIEWPORT_ANIMATION,
+  padding: 0.18,
+} as const;
+const CANVAS_CONTROL_BUTTON_CLASS =
+  "h-9 w-9 rounded-full border border-transparent bg-transparent text-copy-secondary hover:border-surface-border hover:bg-subtle hover:text-copy-primary disabled:text-copy-faint disabled:hover:border-transparent disabled:hover:bg-transparent";
 
 interface CanvasRoomProps {
   roomId: string;
@@ -86,6 +102,14 @@ interface DragClientPointSource {
 interface ShapeDragPreviewState {
   payload: CanvasShapeDragPayload;
   point: DragClientPoint;
+}
+
+interface CanvasControlBarProps {
+  reactFlow: ReactFlowInstance<CanvasNode, CanvasEdge>;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
 }
 
 class CanvasErrorBoundary extends Component<
@@ -233,6 +257,97 @@ function ShapeDragPreview({
   );
 }
 
+function CanvasControlBar({
+  reactFlow,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
+}: CanvasControlBarProps) {
+  const handleZoomOut = useCallback(() => {
+    void reactFlow.zoomOut(CANVAS_VIEWPORT_ANIMATION);
+  }, [reactFlow]);
+
+  const handleFitView = useCallback(() => {
+    void reactFlow.fitView(CANVAS_FIT_VIEW_OPTIONS);
+  }, [reactFlow]);
+
+  const handleZoomIn = useCallback(() => {
+    void reactFlow.zoomIn(CANVAS_VIEWPORT_ANIMATION);
+  }, [reactFlow]);
+
+  return (
+    <div
+      className="nodrag nopan nowheel absolute bottom-4 left-6 z-20 flex items-center gap-1 rounded-full border border-surface-border bg-surface/90 p-1.5 shadow-lg backdrop-blur-md"
+      role="toolbar"
+      aria-label="Canvas controls"
+    >
+      <div className="flex items-center gap-1" role="group" aria-label="Zoom">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          title="Zoom out"
+          aria-label="Zoom out"
+          className={CANVAS_CONTROL_BUTTON_CLASS}
+          onClick={handleZoomOut}
+        >
+          <ZoomOut className="h-4 w-4" aria-hidden />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          title="Fit view"
+          aria-label="Fit view"
+          className={CANVAS_CONTROL_BUTTON_CLASS}
+          onClick={handleFitView}
+        >
+          <Maximize2 className="h-4 w-4" aria-hidden />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          title="Zoom in"
+          aria-label="Zoom in"
+          className={CANVAS_CONTROL_BUTTON_CLASS}
+          onClick={handleZoomIn}
+        >
+          <ZoomIn className="h-4 w-4" aria-hidden />
+        </Button>
+      </div>
+      <div className="h-6 w-px bg-surface-border" aria-hidden />
+      <div className="flex items-center gap-1" role="group" aria-label="History">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          title="Undo"
+          aria-label="Undo"
+          disabled={!canUndo}
+          className={CANVAS_CONTROL_BUTTON_CLASS}
+          onClick={onUndo}
+        >
+          <Undo2 className="h-4 w-4" aria-hidden />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          title="Redo"
+          aria-label="Redo"
+          disabled={!canRedo}
+          className={CANVAS_CONTROL_BUTTON_CLASS}
+          onClick={onRedo}
+        >
+          <Redo2 className="h-4 w-4" aria-hidden />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function normalizeCanvasEdge(edge: CanvasEdge): CanvasEdge {
   if (
     edge.type === CANVAS_EDGE_TYPE &&
@@ -265,7 +380,12 @@ function CanvasFlowInner() {
     nodes: { initial: INITIAL_NODES },
     edges: { initial: INITIAL_EDGES },
   });
-  const { screenToFlowPosition } = useReactFlow<CanvasNode, CanvasEdge>();
+  const reactFlow = useReactFlow<CanvasNode, CanvasEdge>();
+  const { screenToFlowPosition } = reactFlow;
+  const undo = useUndo();
+  const redo = useRedo();
+  const canUndo = useCanUndo();
+  const canRedo = useCanRedo();
   const nodeIdCounter = useRef(0);
   const [dragPreview, setDragPreview] =
     useState<ShapeDragPreviewState | null>(null);
@@ -273,6 +393,24 @@ function CanvasFlowInner() {
     () => edges.map((edge) => normalizeCanvasEdge(edge)),
     [edges]
   );
+
+  const handleUndo = useCallback(() => {
+    if (canUndo) {
+      undo();
+    }
+  }, [canUndo, undo]);
+
+  const handleRedo = useCallback(() => {
+    if (canRedo) {
+      redo();
+    }
+  }, [canRedo, redo]);
+
+  useKeyboardShortcuts({
+    reactFlow,
+    onUndo: handleUndo,
+    onRedo: handleRedo,
+  });
 
   const updateShapeDragPreviewPosition = useCallback(
     (event: DragClientPointSource) => {
@@ -443,13 +581,12 @@ function CanvasFlowInner() {
           size={1.2}
           color="var(--border-subtle)"
         />
-        <MiniMap<CanvasNode>
-          pannable
-          zoomable
-          bgColor="var(--bg-elevated)"
-          maskColor="color-mix(in srgb, var(--bg-base) 76%, transparent)"
-          nodeColor={(node) => node.data.color.background}
-          nodeStrokeColor={(node) => node.data.color.text}
+        <CanvasControlBar
+          reactFlow={reactFlow}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
         />
         <ShapePanel
           onShapeDragStart={handleShapeDragStart}
