@@ -14,6 +14,7 @@ interface CollaboratorPresence {
   id: string;
   displayName: string;
   avatarUrl: string | null;
+  isThinking: boolean;
 }
 
 interface CursorPresence extends CollaboratorPresence {
@@ -48,6 +49,7 @@ function CollaboratorAvatar({
       className={cn(
         AVATAR_CLASS,
         "flex shrink-0 items-center justify-center overflow-hidden bg-elevated text-xs font-semibold text-copy-secondary",
+        collaborator.isThinking && "border-ai/60 ring-2 ring-ai/40",
         className
       )}
       title={collaborator.displayName}
@@ -76,6 +78,7 @@ export function CanvasPresenceOverlay() {
       id: other.id,
       displayName: other.info.displayName,
       avatarUrl: other.info.avatarUrl,
+      isThinking: other.presence.thinking,
     }),
     shallow
   )
@@ -180,7 +183,9 @@ function LiveCursor({ participant }: { participant: CursorPresence }) {
         className="mt-3 max-w-40 truncate rounded-full px-2 py-0.5 text-xs font-semibold text-brand-foreground shadow-lg"
         style={{ backgroundColor: participant.cursorColor }}
       >
-        {participant.displayName}
+        {participant.isThinking
+          ? `${participant.displayName} thinking`
+          : participant.displayName}
       </span>
     </div>
   );
@@ -196,6 +201,7 @@ export function LiveCursorLayer() {
       avatarUrl: other.info.avatarUrl,
       cursor: other.presence.cursor,
       cursorColor: other.info.cursorColor,
+      isThinking: other.presence.thinking,
     }),
     shallow
   ).filter(

@@ -7,6 +7,7 @@ import {
   useCanRedo,
   useCanUndo,
   useErrorListener,
+  useEventListener,
   useRedo,
   useUndo,
   useUpdateMyPresence,
@@ -30,6 +31,7 @@ import {
 } from "@xyflow/react";
 import {
   AlertCircle,
+  CheckCircle2,
   Loader2,
   Maximize2,
   Redo2,
@@ -83,6 +85,7 @@ import {
   type CanvasNodeSize,
   type CanvasShapeDragPayload,
 } from "@/types/canvas";
+import type { AiStatusEvent } from "@/liveblocks.config";
 
 const INITIAL_NODES: CanvasNode[] = [];
 const INITIAL_EDGES: CanvasEdge[] = [];
@@ -104,6 +107,8 @@ const CANVAS_FIT_VIEW_OPTIONS = {
 } as const;
 const CANVAS_CONTROL_BUTTON_CLASS =
   "h-9 w-9 rounded-full border border-transparent bg-transparent text-copy-secondary hover:border-surface-border hover:bg-subtle hover:text-copy-primary disabled:text-copy-faint disabled:hover:border-transparent disabled:hover:bg-transparent";
+const AI_STATUS_FEED_LIMIT = 4;
+const AI_STATUS_TTL_MS = 45_000;
 
 interface CanvasRoomProps {
   roomId: string;
@@ -467,6 +472,90 @@ function CanvasLoadingOverlay() {
         <Loader2 className="h-4 w-4 animate-spin text-brand" aria-hidden />
         <span>Loading canvas</span>
       </div>
+    </div>
+  );
+}
+
+function AiStatusFeed() {
+  const [messages, setMessages] = useState<AiStatusEvent[]>([]);
+
+  useEventListener(({ event }) => {
+    if (event.type !== "AI_STATUS") {
+      return;
+    }
+
+    setMessages((currentMessages) =>
+      [
+        event,
+        ...currentMessages.filter((message) => message.id !== event.id),
+      ].slice(0, AI_STATUS_FEED_LIMIT)
+    );
+  });
+
+  useEffect(() => {
+    if (messages.length === 0) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      const now = Date.now();
+
+      setMessages((currentMessages) =>
+        currentMessages.filter((message) => {
+          const createdAt = Date.parse(message.createdAt);
+
+          return Number.isNaN(createdAt) || now - createdAt < AI_STATUS_TTL_MS;
+        })
+      );
+    }, 1000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [messages]);
+
+  if (messages.length === 0) {
+    return null;
+  }
+
+  return (
+    <div
+      className="nodrag nopan nowheel pointer-events-none absolute left-1/2 top-16 z-20 flex w-[min(28rem,calc(100%-2rem))] -translate-x-1/2 flex-col gap-2"
+      aria-live="polite"
+      aria-label="AI status"
+    >
+      {messages.map((message) => {
+        const isSuccess = message.level === "success";
+        const isError = message.level === "error";
+        const Icon = isSuccess ? CheckCircle2 : isError ? AlertCircle : Loader2;
+
+        return (
+          <div
+            key={message.id}
+            className={cn(
+              "flex items-start gap-2 rounded-lg border border-surface-border bg-surface/90 px-3 py-2 text-sm shadow-lg backdrop-blur-md",
+              isSuccess && "border-state-success/40",
+              isError && "border-state-error/40"
+            )}
+          >
+            <Icon
+              className={cn(
+                "mt-0.5 h-4 w-4 shrink-0 text-ai-text",
+                !isSuccess && !isError && "animate-spin",
+                isSuccess && "text-state-success",
+                isError && "text-state-error"
+              )}
+              aria-hidden
+            />
+            <p
+              className={cn(
+                "min-w-0 flex-1 text-copy-primary",
+                isError && "text-state-error"
+              )}
+            >
+              {message.message}
+            </p>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -930,6 +1019,7 @@ function CanvasFlowInner({ roomId, templateImport }: CanvasFlowInnerProps) {
         <LiveCursorLayer />
       </ReactFlow>
       {isLoadingSavedCanvas ? <CanvasLoadingOverlay /> : null}
+      <AiStatusFeed />
       <CanvasPresenceOverlay />
       {dragPreview ? <ShapeDragPreview dragPreview={dragPreview} /> : null}
     </div>

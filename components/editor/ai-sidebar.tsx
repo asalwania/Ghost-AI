@@ -5,6 +5,7 @@ import {
   BotMessageSquare,
   Download,
   FileText,
+  Loader2,
   Send,
   Sparkles,
   X,
@@ -24,6 +25,7 @@ const STARTER_PROMPTS = [
 
 interface AiSidebarProps {
   isOpen: boolean;
+  projectId: string;
   onClose: () => void;
 }
 
@@ -86,9 +88,22 @@ function ChatBubble({ message }: { message: ChatMessage }) {
   );
 }
 
-function AiArchitectTab() {
+function readDesignError(payload: unknown) {
+  if (!payload || typeof payload !== "object" || !("error" in payload)) {
+    return "Ghost AI could not start that design run.";
+  }
+
+  const error = (payload as { error?: unknown }).error;
+
+  return typeof error === "string" && error.trim()
+    ? error
+    : "Ghost AI could not start that design run.";
+}
+
+function AiArchitectTab({ projectId }: { projectId: string }) {
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const nextMessageId = useRef(1);
 
@@ -108,10 +123,10 @@ function AiArchitectTab() {
     textareaRef.current?.focus();
   };
 
-  const submitDraft = () => {
+  const submitDraft = async () => {
     const trimmedDraft = draft.trim();
 
-    if (!trimmedDraft) {
+    if (!trimmedDraft || isSubmitting) {
       return;
     }
 
@@ -120,20 +135,53 @@ function AiArchitectTab() {
       role: "user",
       content: trimmedDraft,
     };
-    const assistantMessage: ChatMessage = {
-      id: nextMessageId.current + 1,
-      role: "assistant",
-      content:
-        "I can use this prompt once generation is connected. For now, the workspace chat shell is ready.",
-    };
-
-    nextMessageId.current += 2;
+    nextMessageId.current += 1;
     setMessages((currentMessages) => [
       ...currentMessages,
       userMessage,
-      assistantMessage,
     ]);
     setDraft("");
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/ai/design", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: trimmedDraft,
+          roomId: projectId,
+          projectId,
+        }),
+      });
+      const payload: unknown = await response.json().catch(() => null);
+      const assistantMessage: ChatMessage = {
+        id: nextMessageId.current,
+        role: "assistant",
+        content: response.ok
+          ? "I am generating that on the canvas now."
+          : readDesignError(payload),
+      };
+
+      nextMessageId.current += 1;
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        assistantMessage,
+      ]);
+    } catch {
+      const assistantMessage: ChatMessage = {
+        id: nextMessageId.current,
+        role: "assistant",
+        content: "Ghost AI could not reach the design service.",
+      };
+
+      nextMessageId.current += 1;
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        assistantMessage,
+      ]);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -159,7 +207,7 @@ function AiArchitectTab() {
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();
-                submitDraft();
+                void submitDraft();
               }
             }}
             placeholder="Ask Ghost AI about this architecture..."
@@ -169,11 +217,15 @@ function AiArchitectTab() {
             type="button"
             size="icon"
             className="h-10 w-10 shrink-0 bg-ai text-ai-foreground hover:bg-ai/90"
-            onClick={submitDraft}
-            disabled={draft.trim().length === 0}
+            onClick={() => void submitDraft()}
+            disabled={draft.trim().length === 0 || isSubmitting}
             aria-label="Send AI prompt"
           >
-            <Send className="h-4 w-4" />
+            {isSubmitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
           </Button>
         </div>
       </div>
@@ -222,7 +274,7 @@ function SpecsTab() {
   );
 }
 
-export function AiSidebar({ isOpen, onClose }: AiSidebarProps) {
+export function AiSidebar({ isOpen, projectId, onClose }: AiSidebarProps) {
   return (
     <aside
       id="workspace-ai-sidebar"
@@ -284,7 +336,7 @@ export function AiSidebar({ isOpen, onClose }: AiSidebarProps) {
           value="architect"
           className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-surface-border bg-surface/70"
         >
-          <AiArchitectTab />
+          <AiArchitectTab projectId={projectId} />
         </TabsContent>
 
         <TabsContent

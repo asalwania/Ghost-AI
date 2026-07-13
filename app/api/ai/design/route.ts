@@ -1,7 +1,10 @@
 import { tasks } from "@trigger.dev/sdk";
 import { NextRequest, NextResponse } from "next/server";
 
-import { getAuthUserId } from "@/lib/auth";
+import {
+  getCurrentIdentity,
+  getProjectIfAccessible,
+} from "@/lib/project-access";
 import { prisma } from "@/lib/prisma";
 import type { designAgentTask } from "@/trigger/design-agent";
 
@@ -12,8 +15,8 @@ interface DesignRequestBody {
 }
 
 export async function POST(request: NextRequest) {
-  const userId = await getAuthUserId();
-  if (!userId) {
+  const identity = await getCurrentIdentity();
+  if (!identity) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -32,17 +35,30 @@ export async function POST(request: NextRequest) {
   if (!projectId) {
     return NextResponse.json({ error: "projectId is required" }, { status: 400 });
   }
+  if (roomId !== projectId) {
+    return NextResponse.json(
+      { error: "roomId must match projectId" },
+      { status: 400 }
+    );
+  }
+
+  const project = await getProjectIfAccessible(projectId, identity);
+
+  if (!project) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   const handle = await tasks.trigger<typeof designAgentTask>("design-agent", {
     prompt,
     roomId,
+    projectName: project.name,
   });
 
   await prisma.taskRun.create({
     data: {
       runId: handle.id,
       projectId,
-      userId,
+      userId: identity.userId,
     },
   });
 

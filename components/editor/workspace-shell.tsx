@@ -221,6 +221,7 @@ export function WorkspaceShell({
       {/* AI sidebar (right) */}
       <AiSidebar
         isOpen={isAiPanelOpen}
+        projectId={projectId}
         onClose={() => setIsAiPanelOpen(false)}
       />
 
