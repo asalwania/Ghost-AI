@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
   LIVEBLOCKS_ROOM_ACCESS,
+  ensureAiStatusFeed,
   ensureProjectRoom,
   getCursorColorForUserId,
   getLiveblocksClient,
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest) {
 
   try {
     await ensureProjectRoom(project.id, project.name);
+    await ensureAiStatusFeed(project.id);
 
     const session = getLiveblocksClient().prepareSession(identity.userId, {
       userInfo,

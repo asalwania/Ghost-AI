@@ -3,6 +3,8 @@ import {
   type RoomPermissions,
 } from "@liveblocks/node";
 
+import { AI_STATUS_FEED_ID } from "../types/tasks";
+
 export interface LiveblocksUserInfo {
   displayName: string;
   avatarUrl: string | null;
@@ -64,4 +66,43 @@ export async function ensureProjectRoom(roomId: string, projectName: string) {
       projectName,
     },
   });
+}
+
+function readLiveblocksErrorStatus(error: unknown) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    typeof error.status === "number"
+  ) {
+    return error.status;
+  }
+
+  return null;
+}
+
+export async function ensureAiStatusFeed(roomId: string) {
+  const client = getLiveblocksClient();
+
+  try {
+    return await client.getFeed({ roomId, feedId: AI_STATUS_FEED_ID });
+  } catch (error) {
+    if (readLiveblocksErrorStatus(error) !== 404) {
+      throw error;
+    }
+  }
+
+  try {
+    return await client.createFeed({
+      roomId,
+      feedId: AI_STATUS_FEED_ID,
+      metadata: { purpose: "ai-status" },
+    });
+  } catch (error) {
+    if (readLiveblocksErrorStatus(error) !== 409) {
+      throw error;
+    }
+
+    return client.getFeed({ roomId, feedId: AI_STATUS_FEED_ID });
+  }
 }

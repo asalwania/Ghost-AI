@@ -1,8 +1,11 @@
 "use client";
 
+import { useFeedMessages } from "@liveblocks/react";
 import { useEffect, useRef, useState } from "react";
 import {
+  AlertCircle,
   BotMessageSquare,
+  CheckCircle2,
   Download,
   FileText,
   Loader2,
@@ -16,6 +19,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import {
+  AI_STATUS_FEED_ID,
+  aiStatusFeedMessageSchema,
+  isActiveAiStatusMessage,
+  type AiStatusFeedMessage,
+} from "@/types/tasks";
 
 const STARTER_PROMPTS = [
   "Design an e-commerce backend",
@@ -88,6 +97,43 @@ function ChatBubble({ message }: { message: ChatMessage }) {
   );
 }
 
+function AiStatusStrip({ status }: { status: AiStatusFeedMessage }) {
+  const isActive = isActiveAiStatusMessage(status);
+  const isError = status.level === "error";
+  const isSuccess = status.level === "success";
+  const Icon = isActive ? Loader2 : isError ? AlertCircle : CheckCircle2;
+  const fallbackText = isActive
+    ? "Ghost AI is working."
+    : isError
+      ? "Ghost AI could not finish that task."
+      : "Ghost AI finished.";
+
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-2 rounded-xl border border-ai/40 bg-ai/10 px-3 py-2 text-xs text-copy-secondary",
+        isSuccess && "border-state-success/40",
+        isError && "border-state-error/40 text-state-error"
+      )}
+      aria-live="polite"
+      aria-label="AI activity status"
+    >
+      <Icon
+        className={cn(
+          "h-3.5 w-3.5 shrink-0 text-ai-text",
+          isActive && "animate-spin",
+          isSuccess && "text-state-success",
+          isError && "text-state-error"
+        )}
+        aria-hidden
+      />
+      <span className="min-w-0 flex-1 truncate">
+        {status.text ?? fallbackText}
+      </span>
+    </div>
+  );
+}
+
 function readDesignError(payload: unknown) {
   if (!payload || typeof payload !== "object" || !("error" in payload)) {
     return "Ghost AI could not start that design run.";
@@ -101,11 +147,24 @@ function readDesignError(payload: unknown) {
 }
 
 function AiArchitectTab({ projectId }: { projectId: string }) {
+  const feedMessagesResult = useFeedMessages(AI_STATUS_FEED_ID, { limit: 1 });
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const nextMessageId = useRef(1);
+  const feedMessages = feedMessagesResult.messages ?? [];
+  const latestFeedMessage = feedMessages[feedMessages.length - 1];
+  const latestStatusResult = aiStatusFeedMessageSchema.safeParse(
+    latestFeedMessage?.data
+  );
+  const latestStatus = latestStatusResult.success
+    ? latestStatusResult.data
+    : null;
+  const isGenerationActive = latestStatus
+    ? isActiveAiStatusMessage(latestStatus)
+    : false;
+  const isInputDisabled = isSubmitting || isGenerationActive;
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -126,7 +185,7 @@ function AiArchitectTab({ projectId }: { projectId: string }) {
   const submitDraft = async () => {
     const trimmedDraft = draft.trim();
 
-    if (!trimmedDraft || isSubmitting) {
+    if (!trimmedDraft || isInputDisabled) {
       return;
     }
 
@@ -198,7 +257,8 @@ function AiArchitectTab({ projectId }: { projectId: string }) {
         </div>
       </ScrollArea>
 
-      <div className="border-t border-surface-border p-4">
+      <div className="space-y-2 border-t border-surface-border p-4">
+        {latestStatus ? <AiStatusStrip status={latestStatus} /> : null}
         <div className="flex items-end gap-2 rounded-2xl border border-surface-border bg-surface p-2">
           <Textarea
             ref={textareaRef}
@@ -212,16 +272,18 @@ function AiArchitectTab({ projectId }: { projectId: string }) {
             }}
             placeholder="Ask Ghost AI about this architecture..."
             className="max-h-40 min-h-[72px] resize-none border-0 bg-transparent px-2 py-2 shadow-none focus-visible:ring-0"
+            disabled={isInputDisabled}
           />
           <Button
             type="button"
             size="icon"
             className="h-10 w-10 shrink-0 bg-ai text-ai-foreground hover:bg-ai/90"
             onClick={() => void submitDraft()}
-            disabled={draft.trim().length === 0 || isSubmitting}
+            disabled={draft.trim().length === 0 || isInputDisabled}
             aria-label="Send AI prompt"
+            aria-busy={isInputDisabled}
           >
-            {isSubmitting ? (
+            {isInputDisabled ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Send className="h-4 w-4" />

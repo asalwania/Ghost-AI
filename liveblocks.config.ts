@@ -1,22 +1,5 @@
 import type { CanvasFlowStorage } from "@/types/canvas";
-
-export type AiStatusLevel = "info" | "success" | "error";
-export type AiStatusPhase =
-  | "start"
-  | "processing"
-  | "applying"
-  | "complete"
-  | "error";
-
-export type AiStatusEvent = {
-  type: "AI_STATUS";
-  id: string;
-  runId?: string;
-  level: AiStatusLevel;
-  phase: AiStatusPhase;
-  message: string;
-  createdAt: string;
-};
+import type { AiStatusFeedMessage } from "@/types/tasks";
 
 declare global {
   interface Liveblocks {
@@ -38,8 +21,10 @@ declare global {
       };
     };
 
-    RoomEvent: AiStatusEvent;
+    RoomEvent: Record<string, never>;
     ThreadMetadata: Record<string, never>;
+    FeedMetadata: Record<string, string | string[]>;
+    FeedMessageData: AiStatusFeedMessage;
     RoomInfo: Record<string, never>;
   }
 }

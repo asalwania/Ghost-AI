@@ -3,12 +3,11 @@ import { mutateFlow } from "@liveblocks/react-flow/node";
 import { logger, metadata, task } from "@trigger.dev/sdk";
 import { generateText } from "ai";
 
-import { ensureProjectRoom, getLiveblocksClient } from "../lib/liveblocks";
-import type {
-  AiStatusEvent,
-  AiStatusLevel,
-  AiStatusPhase,
-} from "../liveblocks.config";
+import {
+  ensureAiStatusFeed,
+  ensureProjectRoom,
+  getLiveblocksClient,
+} from "../lib/liveblocks";
 import {
   CANVAS_EDGE_TYPE,
   CANVAS_NODE_TYPE,
@@ -24,6 +23,12 @@ import {
   type CanvasNodeSize,
   type CanvasSnapshot,
 } from "../types/canvas";
+import {
+  AI_STATUS_FEED_ID,
+  aiStatusFeedMessageSchema,
+  type AiStatusLevel,
+  type AiStatusPhase,
+} from "../types/tasks";
 
 const DESIGN_ACTION_TYPES = [
   "add_node",
@@ -1178,28 +1183,6 @@ async function generateDesignPlan(
   throw lastError ?? new Error("Gemini did not return a JSON design plan.");
 }
 
-function makeStatusEvent(
-  roomId: string,
-  status: {
-    runId?: string;
-    level: AiStatusLevel;
-    phase: AiStatusPhase;
-    message: string;
-  }
-): AiStatusEvent {
-  return {
-    type: "AI_STATUS",
-    id: `${roomId}-${status.phase}-${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 8)}`,
-    runId: status.runId,
-    level: status.level,
-    phase: status.phase,
-    message: status.message,
-    createdAt: new Date().toISOString(),
-  };
-}
-
 async function publishStatus(
   roomId: string,
   status: {
@@ -1210,7 +1193,19 @@ async function publishStatus(
   }
 ) {
   try {
-    await getLiveblocksClient().broadcastEvent(roomId, makeStatusEvent(roomId, status));
+    const message = aiStatusFeedMessageSchema.parse({
+      runId: status.runId,
+      task: "design",
+      level: status.level,
+      phase: status.phase,
+      text: status.message,
+    });
+
+    await getLiveblocksClient().createFeedMessage({
+      roomId,
+      feedId: AI_STATUS_FEED_ID,
+      data: message,
+    });
   } catch (error) {
     logger.warn("Failed to publish AI status", {
       roomId,
@@ -1314,6 +1309,7 @@ export const designAgentTask = task({
         payload.roomId,
         payload.projectName ?? payload.roomId
       );
+      await ensureAiStatusFeed(payload.roomId);
       snapshot = await readCanvasSnapshot(payload.roomId);
 
       await setAiPresence(payload.roomId, {

@@ -3,6 +3,7 @@
 import { UserButton, useUser } from "@clerk/nextjs";
 import { shallow, useOthersMapped } from "@liveblocks/react";
 import { useViewport, ViewportPortal } from "@xyflow/react";
+import { Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -78,7 +79,7 @@ export function CanvasPresenceOverlay() {
       id: other.id,
       displayName: other.info.displayName,
       avatarUrl: other.info.avatarUrl,
-      isThinking: other.presence.thinking,
+      isThinking: other.presence.thinking === true,
     }),
     shallow
   )
@@ -180,12 +181,13 @@ function LiveCursor({ participant }: { participant: CursorPresence }) {
         />
       </svg>
       <span
-        className="mt-3 max-w-40 truncate rounded-full px-2 py-0.5 text-xs font-semibold text-brand-foreground shadow-lg"
+        className="mt-3 flex max-w-40 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold text-brand-foreground shadow-lg"
         style={{ backgroundColor: participant.cursorColor }}
       >
-        {participant.isThinking
-          ? `${participant.displayName} thinking`
-          : participant.displayName}
+        {participant.isThinking ? (
+          <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-hidden />
+        ) : null}
+        <span className="truncate">{participant.displayName}</span>
       </span>
     </div>
   );
@@ -201,7 +203,7 @@ export function LiveCursorLayer() {
       avatarUrl: other.info.avatarUrl,
       cursor: other.presence.cursor,
       cursorColor: other.info.cursorColor,
-      isThinking: other.presence.thinking,
+      isThinking: other.presence.thinking === true,
     }),
     shallow
   ).filter(
