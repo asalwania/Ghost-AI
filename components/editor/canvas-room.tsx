@@ -9,6 +9,7 @@ import {
   useErrorListener,
   useRedo,
   useUndo,
+  useUpdateMyPresence,
 } from "@liveblocks/react";
 import { useLiveblocksFlow } from "@liveblocks/react-flow";
 import {
@@ -32,6 +33,7 @@ import {
   Component,
   type DragEvent as ReactDragEvent,
   type ErrorInfo,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
   useCallback,
   useEffect,
@@ -43,6 +45,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { CanvasEdgeRenderer } from "@/components/editor/canvas-edge";
 import { CanvasNodeRenderer } from "@/components/editor/canvas-node";
+import {
+  CanvasPresenceOverlay,
+  LiveCursorLayer,
+} from "@/components/editor/canvas-presence";
 import { CanvasShapeFrame } from "@/components/editor/canvas-shape";
 import type { CanvasTemplate } from "@/components/editor/starter-templates";
 import { ShapePanel } from "@/components/editor/shape-panel";
@@ -423,6 +429,7 @@ function CanvasFlowInner({ templateImport }: CanvasFlowInnerProps) {
   });
   const reactFlow = useReactFlow<CanvasNode, CanvasEdge>();
   const { screenToFlowPosition } = reactFlow;
+  const updateMyPresence = useUpdateMyPresence();
   const undo = useUndo();
   const redo = useRedo();
   const canUndo = useCanUndo();
@@ -638,6 +645,22 @@ function CanvasFlowInner({ templateImport }: CanvasFlowInnerProps) {
     [onEdgesChange]
   );
 
+  const handleCanvasMouseMove = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      updateMyPresence({
+        cursor: screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        }),
+      });
+    },
+    [screenToFlowPosition, updateMyPresence]
+  );
+
+  const handleCanvasMouseLeave = useCallback(() => {
+    updateMyPresence({ cursor: null });
+  }, [updateMyPresence]);
+
   return (
     <div className="relative h-full w-full">
       <ReactFlow<CanvasNode, CanvasEdge>
@@ -650,6 +673,8 @@ function CanvasFlowInner({ templateImport }: CanvasFlowInnerProps) {
         onDelete={onDelete}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
+        onMouseMove={handleCanvasMouseMove}
+        onMouseLeave={handleCanvasMouseLeave}
         nodeTypes={CANVAS_NODE_TYPES}
         edgeTypes={CANVAS_EDGE_TYPES}
         defaultEdgeOptions={DEFAULT_CANVAS_EDGE_OPTIONS}
@@ -681,7 +706,9 @@ function CanvasFlowInner({ templateImport }: CanvasFlowInnerProps) {
           onShapeDrag={handleShapeDragMove}
           onShapeDragEnd={clearShapeDragPreview}
         />
+        <LiveCursorLayer />
       </ReactFlow>
+      <CanvasPresenceOverlay />
       {dragPreview ? <ShapeDragPreview dragPreview={dragPreview} /> : null}
     </div>
   );
@@ -702,7 +729,7 @@ export function CanvasRoom({ roomId, templateImport }: CanvasRoomProps) {
         <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
           <RoomProvider
             id={roomId}
-            initialPresence={{ cursor: null, isThinking: false }}
+            initialPresence={{ cursor: null, thinking: false }}
           >
             <LiveblocksErrorGate>
               <ClientSideSuspense fallback={<CanvasFallback title="Connecting canvas" />}>

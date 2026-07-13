@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { BotMessageSquare, LayoutTemplate, Share2 } from "lucide-react";
 
+import { AiSidebar } from "@/components/editor/ai-sidebar";
 import {
   CanvasRoom,
   type CanvasTemplateImportRequest,
@@ -217,26 +218,11 @@ export function WorkspaceShell({
         />
       </main>
 
-      {/* AI sidebar placeholder (right) */}
-      <aside
-        id="workspace-ai-sidebar"
-        className={cn(
-          "fixed right-0 top-16 z-30 flex h-[calc(100vh-4rem)] w-80 flex-col border-l border-surface-border bg-surface/95 backdrop-blur-md transition-transform duration-300 ease-out",
-          isAiPanelOpen ? "translate-x-0" : "translate-x-full"
-        )}
-        aria-label="AI assistant panel"
-        aria-hidden={!isAiPanelOpen}
-      >
-        <div className="flex h-14 items-center gap-3 border-b border-surface-border px-4">
-          <BotMessageSquare className="h-5 w-5 text-ai-text" />
-          <span className="text-sm font-semibold text-copy-primary">
-            AI Assistant
-          </span>
-        </div>
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-          <p className="text-sm text-copy-muted">AI chat coming soon.</p>
-        </div>
-      </aside>
+      {/* AI sidebar (right) */}
+      <AiSidebar
+        isOpen={isAiPanelOpen}
+        onClose={() => setIsAiPanelOpen(false)}
+      />
 
       {/* Dialogs */}
       <ProjectDialogs
