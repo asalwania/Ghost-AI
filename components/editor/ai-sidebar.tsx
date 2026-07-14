@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -295,7 +296,65 @@ function AiArchitectTab({ projectId }: { projectId: string }) {
   );
 }
 
-function SpecsTab() {
+function SpecsTab({ projectId }: { projectId: string }) {
+  const [specs, setSpecs] = useState<{ id: string; createdAt: string }[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedSpecId, setSelectedSpecId] = useState<string | null>(null);
+  const [specContent, setSpecContent] = useState<string>("");
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    async function loadSpecs() {
+      try {
+        const response = await fetch(`/api/projects/${projectId}/specs`, {
+          signal: abortController.signal,
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.specs) {
+            setSpecs(data.specs);
+          }
+        }
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          return;
+        }
+        console.error("Failed to load specs", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    void loadSpecs();
+
+    return () => {
+      abortController.abort();
+    };
+  }, [projectId]);
+
+  const handleDownload = (specId: string) => {
+    window.open(`/api/projects/${projectId}/specs/${specId}/download`, '_blank');
+  };
+
+  const handlePreview = async (specId: string) => {
+    setSelectedSpecId(specId);
+    setSpecContent("Loading...");
+    setIsPreviewOpen(true);
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/specs/${specId}/download`);
+      if (response.ok) {
+        const text = await response.text();
+        setSpecContent(text);
+      } else {
+        setSpecContent("Failed to load spec content.");
+      }
+    } catch {
+      setSpecContent("Failed to load spec content.");
+    }
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
       <Button
@@ -306,32 +365,83 @@ function SpecsTab() {
         Generate Spec
       </Button>
 
-      <article className="rounded-2xl border border-surface-border bg-elevated p-4">
-        <div className="mb-4 flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-surface-border bg-subtle text-ai-text">
-            <FileText className="h-5 w-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="truncate text-sm font-semibold text-copy-primary">
-              Architecture Specification
-            </h3>
-            <p className="mt-1 text-sm leading-5 text-copy-muted">
-              Draft spec preview for the current canvas, including services,
-              data flow, and operational notes.
-            </p>
-          </div>
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="flex flex-col gap-3 pb-4">
+          {isLoading ? (
+            <div className="p-4 text-center text-sm text-copy-muted">Loading specs...</div>
+          ) : specs.length === 0 ? (
+            <div className="p-4 text-center text-sm text-copy-muted">No specs generated yet.</div>
+          ) : (
+            specs.map((spec) => (
+              <article 
+                key={spec.id} 
+                className="group cursor-pointer rounded-2xl border border-surface-border bg-elevated p-4 transition-colors hover:border-ai/50"
+                onClick={() => handlePreview(spec.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    void handlePreview(spec.id);
+                  }
+                }}
+              >
+                <div className="mb-4 flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-surface-border bg-subtle text-ai-text transition-colors group-hover:bg-ai/10">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate text-sm font-semibold text-copy-primary transition-colors group-hover:text-ai-text">
+                      Architecture Specification
+                    </h3>
+                    <p className="mt-1 text-xs text-copy-muted">
+                      {new Date(spec.createdAt).toLocaleDateString()} at {new Date(spec.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 border-surface-border bg-subtle text-copy-muted hover:bg-elevated hover:text-copy-primary"
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      handleDownload(spec.id); 
+                    }}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download
+                  </Button>
+                </div>
+              </article>
+            ))
+          )}
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="w-full border-surface-border bg-subtle text-copy-muted"
-          disabled
-        >
-          <Download className="h-4 w-4" />
-          Download
-        </Button>
-      </article>
+      </ScrollArea>
+
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent className="flex max-h-[85vh] max-w-3xl flex-col p-0">
+          <DialogHeader className="border-b border-surface-border px-6 py-4">
+            <DialogTitle>Spec Preview</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="flex-1 p-6">
+            <div className="font-mono text-sm leading-relaxed text-copy-primary whitespace-pre-wrap">
+              {specContent}
+            </div>
+          </ScrollArea>
+          <div className="flex justify-end border-t border-surface-border p-4">
+            <Button
+              type="button"
+              className="bg-brand text-brand-foreground hover:bg-brand/90"
+              onClick={() => selectedSpecId && handleDownload(selectedSpecId)}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Download Spec
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -405,7 +515,7 @@ export function AiSidebar({ isOpen, projectId, onClose }: AiSidebarProps) {
           value="specs"
           className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-surface-border bg-surface/70"
         >
-          <SpecsTab />
+          <SpecsTab projectId={projectId} />
         </TabsContent>
       </Tabs>
     </aside>
